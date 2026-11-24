@@ -82,7 +82,7 @@ fn full_session_roundtrips_through_the_store() {
         restored.tabs[0].url.as_ref().map(|url| url.as_str()),
         Some("https://example.com/")
     );
-    assert_eq!(restored.tabs[0].title, "https://example.com");
+    assert_eq!(restored.tabs[0].title, "example.com");
 
     // id allocation continues past the restored maximum (tab 3 was the last)
     second
