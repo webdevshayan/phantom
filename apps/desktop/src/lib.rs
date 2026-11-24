@@ -10,6 +10,7 @@
 //! The UI and webview layers are feature-gated (`ui-shell`, `webview-host`)
 //! so the model and persistence layers build and test on a bare toolchain.
 
+pub mod browser;
 pub mod domain;
 pub mod infra;
 pub mod webview;

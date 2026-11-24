@@ -37,6 +37,9 @@ pub struct Tab {
     pub status: TabStatus,
     pub can_go_back: bool,
     pub can_go_forward: bool,
+    /// True once a native webview surface exists for this tab (the session
+    /// tracks it to emit attach effects lazily). Not persisted.
+    pub surfaced: bool,
 }
 
 impl Tab {
@@ -49,6 +52,7 @@ impl Tab {
             status: TabStatus::New,
             can_go_back: false,
             can_go_forward: false,
+            surfaced: false,
         }
     }
 
