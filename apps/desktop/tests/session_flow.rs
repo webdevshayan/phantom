@@ -110,9 +110,7 @@ fn corrupt_window_snapshot_is_skipped_for_a_clean_start() {
         tabs: Vec::new(),
     };
     store
-        .save_session(&SessionSnapshot {
-            windows: vec![bad],
-        })
+        .save_session(&SessionSnapshot { windows: vec![bad] })
         .unwrap();
     let mut session = PhantomSession::new(store, Settings::default());
     let effects = session.restore().unwrap();
@@ -140,19 +138,22 @@ fn ipc_reports_flow_into_session_state() {
     let window = session.window(focused_window(&session)).unwrap();
     let loaded = window.tab(tab).unwrap();
     assert_eq!(loaded.title, "Example Domain");
-    assert_eq!(loaded.status, phantom_desktop::domain::tab::TabStatus::Loaded);
+    assert_eq!(
+        loaded.status,
+        phantom_desktop::domain::tab::TabStatus::Loaded
+    );
 
     // a hostile message is refused before it can touch the session
-    let hostile = "{\"type\":\"open_in_new_tab\",\"url\":\"javascript:alert(1)\",\"background\":false}";
+    let hostile =
+        "{\"type\":\"open_in_new_tab\",\"url\":\"javascript:alert(1)\",\"background\":false}";
     assert!(decode_webview_message(hostile).is_err());
 
     // a legit open request opens a tab in the same space
-    let open = "{\"type\":\"open_in_new_tab\",\"url\":\"https://example.org/\",\"background\":false}";
+    let open =
+        "{\"type\":\"open_in_new_tab\",\"url\":\"https://example.org/\",\"background\":false}";
     match decode_webview_message(open).unwrap() {
         WebviewToHost::OpenInNewTab { url, background } => {
-            let effects = session
-                .report_open_request(tab, url, background)
-                .unwrap();
+            let effects = session.report_open_request(tab, url, background).unwrap();
             assert_eq!(effects.len(), 1, "surface attached for foreground open");
         }
         other => panic!("wrong variant: {other:?}"),
@@ -191,7 +192,11 @@ fn dismiss_window_only_leaves_the_other_one() {
         .unwrap();
     assert_eq!(session.windows().len(), 2);
     let effects = session.dismiss_window(1).unwrap();
-    assert_eq!(effects.len(), 1, "detach effect for the dismissed window's tab");
+    assert_eq!(
+        effects.len(),
+        1,
+        "detach effect for the dismissed window's tab"
+    );
     assert_eq!(session.windows().len(), 1);
     assert_eq!(focused_window(&session), 2);
 }
