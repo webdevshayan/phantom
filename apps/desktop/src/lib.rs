@@ -12,5 +12,9 @@
 
 pub mod browser;
 pub mod domain;
+pub mod headless;
 pub mod infra;
 pub mod webview;
+
+#[cfg(feature = "ui-shell")]
+pub mod ui;
