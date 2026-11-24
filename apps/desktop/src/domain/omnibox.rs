@@ -23,11 +23,13 @@ pub fn classify(input: &str) -> OmniboxInput {
         return OmniboxInput::Search(String::new());
     }
 
+    // `Url::parse` accepts dotted "schemes" like `example.com:8080`, so a
+    // non-navigable parse result can still be a host reference — fall
+    // through to host promotion before settling on a search.
     if let Ok(url) = Url::parse(trimmed) {
         if is_navigable(&url) {
             return OmniboxInput::Url(url);
         }
-        return OmniboxInput::Search(trimmed.to_string());
     }
 
     if looks_like_host(trimmed) {
