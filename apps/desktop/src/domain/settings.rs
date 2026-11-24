@@ -63,7 +63,7 @@ impl FeatureFlag {
 /// Error for actions whose feature flag is off. Fails closed.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, thiserror::Error)]
 #[error("feature '{0}' is disabled in settings")]
-pub struct FeatureDisabledError(&'static str);
+pub struct FeatureDisabledError(pub &'static str);
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct FeatureFlags {
@@ -113,14 +113,23 @@ impl FeatureFlags {
     }
 }
 
+fn default_theme() -> Theme {
+    Theme::System
+}
+
+fn default_search_engine() -> SearchEngine {
+    SearchEngine::DuckDuckGo
+}
+
 /// Everything persisted under the `settings` key. Fields added in later
-/// versions deserialize to defaults on older blobs.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// versions deserialize to defaults on older blobs. Field defaults are
+/// pinned via functions so they cannot drift from `Settings::default()`.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Settings {
     pub schema_version: u32,
-    #[serde(default)]
+    #[serde(default = "default_theme")]
     pub theme: Theme,
-    #[serde(default)]
+    #[serde(default = "default_search_engine")]
     pub search_engine: SearchEngine,
     #[serde(default)]
     pub flags: FeatureFlags,
@@ -157,7 +166,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_are_private_and_light_by_default_shape() {
+    fn defaults_follow_a_private_starting_point() {
         let settings = Settings::default();
         assert_eq!(settings.theme, Theme::System);
         assert_eq!(settings.search_engine, SearchEngine::DuckDuckGo);

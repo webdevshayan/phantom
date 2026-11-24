@@ -3,7 +3,7 @@ use url::Url;
 
 /// Search engines the omnibox can use. Templates are https-only literals;
 /// the query value is percent-encoded before substitution.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchEngine {
     #[default]
@@ -95,7 +95,7 @@ mod tests {
     fn serde_uses_snake_case_names() {
         assert_eq!(
             serde_json::to_string(&SearchEngine::DuckDuckGo).unwrap(),
-            "\"duckduckgo\""
+            "\"duck_duck_go\""
         );
         let engine: SearchEngine = serde_json::from_str("\"brave\"").unwrap();
         assert_eq!(engine, SearchEngine::Brave);
