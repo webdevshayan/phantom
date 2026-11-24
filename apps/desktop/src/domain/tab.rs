@@ -42,12 +42,15 @@ pub struct Tab {
     pub surfaced: bool,
 }
 
+/// Sentinel title of a tab that has not loaded anything yet.
+pub const NEW_TAB_TITLE: &str = "New Tab";
+
 impl Tab {
     pub fn new(id: TabId, space: SpaceId) -> Self {
         Self {
             id,
             space,
-            title: String::from("New Tab"),
+            title: String::from(NEW_TAB_TITLE),
             url: None,
             status: TabStatus::New,
             can_go_back: false,
@@ -93,10 +96,11 @@ impl Tab {
         self.status = TabStatus::Failed;
     }
 
-    /// Title shown in the tab strip; falls back to the host, then a generic
-    /// label — never to an empty string.
+    /// Title shown in the tab strip; falls back to the host, then the
+    /// sentinel label — never to an empty string. The "New Tab" sentinel is
+    /// treated as no title so the host shows through on first paint.
     pub fn display_title(&self) -> &str {
-        if !self.title.is_empty() {
+        if !self.title.is_empty() && self.title != NEW_TAB_TITLE {
             return &self.title;
         }
         if let Some(url) = &self.url {
@@ -104,7 +108,7 @@ impl Tab {
                 return host;
             }
         }
-        "New Tab"
+        NEW_TAB_TITLE
     }
 }
 
