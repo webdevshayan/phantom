@@ -1,0 +1,83 @@
+name: build_mobile
+
+on:
+  push:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/build_mobile.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/build_mobile.yml"
+  workflow_dispatch:
+
+jobs:
+  mobile-tests:
+    name: mobile analyze and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.24.5"
+          cache: true
+
+      - name: Turn off tool telemetry
+        run: flutter config --no-analytics
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  mobile-apk:
+    name: mobile debug apk build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.24.5"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build debug apk
+        run: flutter build apk --debug --target-platform android-arm64
+
+      - name: Upload debug apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: phantom-mobile-debug-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
