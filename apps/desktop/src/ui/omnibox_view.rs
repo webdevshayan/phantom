@@ -1,12 +1,15 @@
 //! The omnibox: url/search input built on the domain caret buffer.
 
-use gpui::{div, prelude::*, px, Context, Div, KeyDownEvent, MouseButton, Styled, Window};
+use gpui::{
+    div, prelude::*, px, Context, IntoElement, KeyDownEvent, MouseButton, SharedString, Styled,
+    Window,
+};
 
-use crate::browser::BrowserWindow;
 use crate::domain::command::{BrowserCommand, NavigationTarget};
 use crate::domain::omnibox::{classify, OmniboxInput};
 use crate::ui::app::{lock, BrowserShell};
 use crate::ui::theme::ChromeTheme;
+use crate::ui::window::BrowserWindow;
 
 /// Renders the omnibox row segment. Focus follows the omnibox focus handle;
 /// the buffer stays in sync with the active tab's url while not edited.
@@ -15,7 +18,7 @@ pub fn render(
     theme: &ChromeTheme,
     _window: &mut Window,
     cx: &mut Context<BrowserWindow>,
-) -> Div {
+) -> impl IntoElement {
     div()
         .id("omnibox")
         .track_focus(&state.omnibox_focus)
@@ -37,7 +40,7 @@ pub fn render(
             cx.listener(|this, _event, window, cx| {
                 if !this.omnibox.is_focused() {
                     this.omnibox.focus(false);
-                    window.focus(&this.omnibox_focus);
+                    this.omnibox_focus.focus(window);
                     cx.notify();
                 }
             }),
@@ -46,7 +49,7 @@ pub fn render(
         .child(render_caret_text(state, theme))
 }
 
-fn render_caret_text(state: &BrowserWindow, theme: &ChromeTheme) -> gpui::AnyElement {
+fn render_caret_text(state: &BrowserWindow, theme: &ChromeTheme) -> impl IntoElement {
     let text = state.omnibox.text().to_string();
     let display = if text.is_empty() && !state.omnibox.is_focused() {
         String::new()
@@ -89,7 +92,7 @@ fn handle_omnibox_key(
     }
     if key == "escape" {
         let url = active_tab_url(this, cx);
-        this.omnibox.show_url(url.as_deref());
+        this.omnibox.show_url(url.as_ref());
         this.omnibox.blur();
         cx.notify();
         cx.stop_propagation();
@@ -158,11 +161,11 @@ fn commit(this: &mut BrowserWindow, window: &mut Window, cx: &mut Context<Browse
     this.run_command(BrowserCommand::Navigate { tab, target }, window, cx);
 }
 
-fn active_tab_url(this: &BrowserWindow, cx: &Context<BrowserWindow>) -> Option<String> {
+fn active_tab_url(this: &BrowserWindow, cx: &Context<BrowserWindow>) -> Option<url::Url> {
     let shell = cx.global::<BrowserShell>();
     let session = lock(&shell.session);
     session
         .window(this.window_id)
         .and_then(|window| window.active_tab())
-        .and_then(|tab| tab.url.as_ref().map(|url| url.to_string()))
+        .and_then(|tab| tab.url.clone())
 }

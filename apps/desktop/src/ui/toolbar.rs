@@ -1,21 +1,21 @@
 //! Toolbar row: navigation buttons, the omnibox, and the 3-dot menu button.
 
-use gpui::{div, prelude::*, px, Context, Div, MouseButton, Styled, Window};
+use gpui::{div, prelude::*, px, Context, IntoElement, MouseButton, Styled, Window};
 
-use crate::browser::BrowserWindow;
 use crate::domain::command::BrowserCommand;
 use crate::domain::tab::TabStatus;
 use crate::ui::app::{lock, BrowserShell};
 use crate::ui::menu;
 use crate::ui::omnibox_view;
 use crate::ui::theme::{ChromeTheme, TOOLBAR_HEIGHT};
+use crate::ui::window::BrowserWindow;
 
 pub fn render(
     state: &mut BrowserWindow,
     theme: &ChromeTheme,
     window: &mut Window,
     cx: &mut Context<BrowserWindow>,
-) -> Div {
+) -> impl IntoElement {
     let (can_go_back, can_go_forward, is_loading) = {
         let shell = cx.global::<BrowserShell>();
         let session = lock(&shell.session);
@@ -38,11 +38,12 @@ pub fn render(
     let on_forward = cx.listener(|this, _event, window, cx| {
         this.command_on_active_tab(|tab| BrowserCommand::GoForward { tab }, window, cx);
     });
-    let on_reload = cx.listener(|this, _event, window, cx| {
-        this.command_on_active_tab(|tab| BrowserCommand::Reload { tab }, window, cx);
-    });
-    let on_stop = cx.listener(|this, _event, window, cx| {
-        this.command_on_active_tab(|tab| BrowserCommand::StopLoading { tab }, window, cx);
+    let on_reload_or_stop = cx.listener(move |this, _event, window, cx| {
+        if is_loading {
+            this.command_on_active_tab(|tab| BrowserCommand::StopLoading { tab }, window, cx);
+        } else {
+            this.command_on_active_tab(|tab| BrowserCommand::Reload { tab }, window, cx);
+        }
     });
     let on_menu = cx.listener(|this, _event, _window, cx| {
         this.menu_open = !this.menu_open;
@@ -57,20 +58,15 @@ pub fn render(
         .h(px(TOOLBAR_HEIGHT))
         .px_1()
         .bg(theme.toolbar_background)
-        .child(button(theme, "back", "←", can_go_back, cx, on_back))
+        .child(button(theme, "back", "←", can_go_back, on_back))
+        .child(button(theme, "forward", "→", can_go_forward, on_forward))
         .child(button(
             theme,
-            "forward",
-            "→",
-            can_go_forward,
-            cx,
-            on_forward,
+            "reload",
+            if is_loading { "✕" } else { "⟳" },
+            true,
+            on_reload_or_stop,
         ))
-        .child(if is_loading {
-            button(theme, "stop", "✕", true, cx, on_stop)
-        } else {
-            button(theme, "reload", "⟳", true, cx, on_reload)
-        })
         .child(omnibox_view::render(state, theme, window, cx))
         .child(
             div()
@@ -98,10 +94,8 @@ fn button(
     id: &'static str,
     glyph: &'static str,
     enabled: bool,
-    cx: &Context<BrowserWindow>,
-    on_press: impl Fn(&mut BrowserWindow, &gpui::MouseDownEvent, &mut Window, &mut Context<BrowserWindow>)
-        + 'static,
-) -> Div {
+    on_press: impl Fn(&gpui::MouseDownEvent, &mut gpui::Window, &mut gpui::App) + 'static,
+) -> impl IntoElement {
     let base = div()
         .id(id)
         .flex()
@@ -116,7 +110,7 @@ fn button(
     if enabled {
         base.text_color(theme.text)
             .hover(|style| style.bg(theme.tab_hover_background))
-            .on_mouse_down(MouseButton::Left, cx.listener(on_press))
+            .on_mouse_down(MouseButton::Left, on_press)
     } else {
         base.text_color(theme.text_muted)
     }

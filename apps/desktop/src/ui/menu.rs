@@ -1,9 +1,8 @@
 //! The 3-dot dropdown menu. Tiling entries gray out while `enable_tiling`
 //! is off, mirroring the switches in the settings window.
 
-use gpui::{div, prelude::*, px, Context, Div, MouseButton, MouseDownEvent, Styled};
+use gpui::{div, prelude::*, px, Context, IntoElement, MouseButton, MouseDownEvent, Styled};
 
-use crate::browser::BrowserWindow;
 use crate::domain::command::BrowserCommand;
 use crate::domain::layout::SplitDirection;
 use crate::domain::settings::FeatureFlag;
@@ -11,8 +10,13 @@ use crate::domain::space::SpaceId;
 use crate::domain::tab::TabStatus;
 use crate::ui::app::{lock, BrowserShell};
 use crate::ui::theme::ChromeTheme;
+use crate::ui::window::BrowserWindow;
 
-pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWindow>) -> Div {
+pub fn render(
+    state: &BrowserWindow,
+    theme: &ChromeTheme,
+    cx: &Context<BrowserWindow>,
+) -> impl IntoElement {
     let (tiling, active_loading) = {
         let shell = cx.global::<BrowserShell>();
         let session = lock(&shell.session);
@@ -45,7 +49,7 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
         .flex_col()
         .py_1()
         .rounded(px(8.0))
-        .shadow(md())
+        .shadow(vec![md()])
         .bg(theme.menu_background)
         .border_1()
         .border_color(theme.border)
@@ -56,11 +60,12 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
             "New tab",
             "Ctrl+T",
             true,
-            cx,
-            |this, _event, window, cx| {
-                this.menu_open = false;
-                this.new_tab(window, cx);
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                    this.menu_open = false;
+                    this.new_tab(window, cx);
+                },
+            ),
         ))
         .child(entry(
             theme,
@@ -68,30 +73,32 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
             "New window",
             "Ctrl+N",
             true,
-            cx,
-            |this, _event, window, cx| {
-                this.menu_open = false;
-                this.run_command(
-                    BrowserCommand::NewWindow {
-                        space: SpaceId::default_space(),
-                    },
-                    window,
-                    cx,
-                );
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                    this.menu_open = false;
+                    this.run_command(
+                        BrowserCommand::NewWindow {
+                            space: SpaceId::default_space(),
+                        },
+                        window,
+                        cx,
+                    );
+                },
+            ),
         ))
-        .divider(theme)
+        .child(divider(theme))
         .child(entry(
             theme,
             "split-h",
             "Split horizontally",
             "Ctrl+Shift+H",
             tiling,
-            cx,
-            |this, _event, window, cx| {
-                this.menu_open = false;
-                this.split(SplitDirection::Horizontal, window, cx);
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                    this.menu_open = false;
+                    this.split(SplitDirection::Horizontal, window, cx);
+                },
+            ),
         ))
         .child(entry(
             theme,
@@ -99,11 +106,12 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
             "Split vertically",
             "Ctrl+Shift+J",
             tiling,
-            cx,
-            |this, _event, window, cx| {
-                this.menu_open = false;
-                this.split(SplitDirection::Vertical, window, cx);
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                    this.menu_open = false;
+                    this.split(SplitDirection::Vertical, window, cx);
+                },
+            ),
         ))
         .child(entry(
             theme,
@@ -111,30 +119,32 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
             "Close pane",
             "Ctrl+Shift+W",
             tiling,
-            cx,
-            |this, _event, window, cx| {
-                this.menu_open = false;
-                if let Some(pane) = this.focused_pane_id(cx) {
-                    this.run_command(BrowserCommand::ClosePane { pane }, window, cx);
-                }
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                    this.menu_open = false;
+                    if let Some(pane) = this.focused_pane_id(cx) {
+                        this.run_command(BrowserCommand::ClosePane { pane }, window, cx);
+                    }
+                },
+            ),
         ))
-        .divider(theme)
+        .child(divider(theme))
         .child(entry(
             theme,
             "devtools",
             "Developer tools",
             "F12",
             true,
-            cx,
-            |this, _event, window, cx| {
-                this.menu_open = false;
-                this.command_on_active_tab(
-                    |tab| BrowserCommand::ToggleDevTools { tab },
-                    window,
-                    cx,
-                );
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                    this.menu_open = false;
+                    this.command_on_active_tab(
+                        |tab| BrowserCommand::ToggleDevTools { tab },
+                        window,
+                        cx,
+                    );
+                },
+            ),
         ))
         .child(entry(
             theme,
@@ -142,11 +152,12 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
             "Settings",
             "Ctrl+,",
             true,
-            cx,
-            |this, _event, _window, cx| {
-                this.menu_open = false;
-                this.open_settings(cx);
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, _window, cx| {
+                    this.menu_open = false;
+                    this.open_settings(cx);
+                },
+            ),
         ))
         .child(entry(
             theme,
@@ -154,11 +165,12 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
             "Quit Phantom",
             "Ctrl+Shift+Q",
             true,
-            cx,
-            |this, _event, _window, cx| {
-                this.menu_open = false;
-                this.quit(cx);
-            },
+            cx.listener(
+                |this: &mut BrowserWindow, _e: &MouseDownEvent, _window, cx| {
+                    this.menu_open = false;
+                    this.quit(cx);
+                },
+            ),
         ))
         .when(active_loading, |menu| {
             menu.child(entry(
@@ -167,15 +179,16 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
                 "Stop loading",
                 "Esc",
                 true,
-                cx,
-                |this, _event, window, cx| {
-                    this.menu_open = false;
-                    this.command_on_active_tab(
-                        |tab| BrowserCommand::StopLoading { tab },
-                        window,
-                        cx,
-                    );
-                },
+                cx.listener(
+                    |this: &mut BrowserWindow, _e: &MouseDownEvent, window, cx| {
+                        this.menu_open = false;
+                        this.command_on_active_tab(
+                            |tab| BrowserCommand::StopLoading { tab },
+                            window,
+                            cx,
+                        );
+                    },
+                ),
             ))
         })
 }
@@ -187,10 +200,8 @@ fn entry(
     label: &'static str,
     shortcut: &'static str,
     enabled: bool,
-    cx: &Context<BrowserWindow>,
-    on_press: impl Fn(&mut BrowserWindow, &MouseDownEvent, &mut gpui::Window, &mut Context<BrowserWindow>)
-        + 'static,
-) -> Div {
+    on_press: impl Fn(&MouseDownEvent, &mut gpui::Window, &mut gpui::App) + 'static,
+) -> impl IntoElement {
     let base = div()
         .id(id)
         .flex()
@@ -210,13 +221,13 @@ fn entry(
         );
     if enabled {
         base.hover(|style| style.bg(theme.menu_hover))
-            .on_mouse_down(MouseButton::Left, cx.listener(on_press))
+            .on_mouse_down(MouseButton::Left, on_press)
     } else {
         base.opacity(0.4)
     }
 }
 
-fn divider(theme: &ChromeTheme) -> Div {
+fn divider(theme: &ChromeTheme) -> impl IntoElement {
     div().h(px(1.0)).my_1().mx_2().bg(theme.border)
 }
 

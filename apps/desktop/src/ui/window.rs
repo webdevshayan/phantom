@@ -5,11 +5,11 @@
 use std::path::PathBuf;
 
 use gpui::{
-    div, prelude::*, px, Context, FocusHandle, IntoElement, ParentElement, Point, Render, Styled,
-    Window,
+    div, prelude::*, Context, FocusHandle, IntoElement, ParentElement, Pixels, Point, Render,
+    Styled, Window,
 };
 
-use crate::browser::{Effect, PhantomSession, WindowId, WindowState};
+use crate::browser::{Effect, WindowId, WindowState};
 use crate::domain::command::{BrowserCommand, NavigationTarget};
 use crate::domain::layout::{PaneId, RectPx, SplitDirection};
 use crate::domain::omnibox::OmniboxBuffer;
@@ -21,9 +21,8 @@ use crate::ui::actions;
 use crate::ui::app::{
     drain_host_events, drain_settings_queue, lock, open_settings_window, BrowserShell,
 };
-use crate::ui::menu;
 use crate::ui::tab_strip;
-use crate::ui::theme::{self, ChromeTheme};
+use crate::ui::theme;
 use crate::ui::toolbar;
 use crate::webview::host::WebviewHost;
 
@@ -298,7 +297,7 @@ impl Render for BrowserWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if !self.focused_once {
             self.focused_once = true;
-            window.focus(&self.root_focus);
+            self.root_focus.focus(window);
         }
 
         // session upkeep first: webview reports and settings pushed by the
@@ -316,7 +315,7 @@ impl Render for BrowserWindow {
             )
         };
         let Some(state) = state else {
-            return div().size_full().bg(gpui::black());
+            return div().id("browser-empty").size_full().bg(gpui::black());
         };
         let theme = theme::resolve(settings_copy.theme, theme::os_prefers_dark(window));
         self.host
@@ -327,25 +326,24 @@ impl Render for BrowserWindow {
             .active_tab()
             .map(|tab| tab.display_title().to_string());
         if title.is_some() && title != self.last_title {
-            window.set_window_title(title.clone().expect("checked above"));
-            self.last_title = title;
+            let title = title.expect("checked above");
+            window.set_window_title(&title);
+            self.last_title = Some(title);
         }
 
         // the omnibox mirrors the active url while it is not being edited
-        let url_text = state
-            .active_tab()
-            .and_then(|tab| tab.url.as_ref())
-            .map(|url| url.to_string());
+        let active_url = state.active_tab().and_then(|tab| tab.url.clone());
+        let url_text = active_url.as_ref().map(|url| url.to_string());
         if !self.omnibox.is_focused() && self.last_url != url_text {
-            self.omnibox.show_url(url_text.as_deref());
+            self.omnibox.show_url(active_url.as_ref());
             self.last_url = url_text;
         }
 
         // content geometry in logical pixels, window-relative
-        let scale = window.scale_factor() as f32;
+        let scale = window.scale_factor();
         let viewport = window.viewport_size();
-        let content_width = (viewport.width / scale).0.max(0.0);
-        let content_height = ((viewport.height / scale).0 - theme::CHROME_HEIGHT).max(0.0);
+        let content_width = f32::from(viewport.width / scale).max(0.0);
+        let content_height = (f32::from(viewport.height / scale) - theme::CHROME_HEIGHT).max(0.0);
         let rects = state.layout.compute_rects(content_width, content_height);
 
         self.sync_surfaces(&state, &rects, window, cx);
@@ -451,7 +449,7 @@ impl Render for BrowserWindow {
                             .window(this.window_id)
                             .map(|window| window.layout.next_pane(window.focused_pane))
                     };
-                    drop(shell);
+                    let _ = shell;
                     if let Some(pane) = next {
                         this.run_command(BrowserCommand::FocusPane { pane }, window, cx);
                     }

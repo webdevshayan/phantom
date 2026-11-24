@@ -7,8 +7,8 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use gpui::{
-    px, App, Application, Bounds, Context, Global, Point, Size, TitlebarOptions, WindowBounds,
-    WindowOptions,
+    px, App, AppContext, Application, AsyncApp, Bounds, Global, Point, Size, TitlebarOptions,
+    WindowBounds, WindowOptions,
 };
 
 use crate::browser::{PhantomSession, WindowId};
@@ -96,7 +96,7 @@ pub(crate) fn open_browser_window(
         }),
         ..Default::default()
     };
-    let _ = cx.open_window(options, |cx: &mut Context<BrowserWindow>| {
+    let _ = cx.open_window(options, |_window, cx| {
         cx.new(|cx| BrowserWindow::new(window_id, profile, cx))
     });
 }
@@ -160,9 +160,7 @@ pub(crate) fn open_settings_window(cx: &mut App) {
         }),
         ..Default::default()
     };
-    let _ = cx.open_window(options, |cx: &mut Context<SettingsView>| {
-        cx.new(SettingsView::new)
-    });
+    let _ = cx.open_window(options, |_window, cx| cx.new(SettingsView::new));
 }
 
 /// Entry point of the desktop shell.
@@ -197,22 +195,20 @@ pub fn launch(profile: PathBuf) {
 
         // light pump: keeps webview reports and settings updates rendering
         // even when nothing else wakes the frame loop
-        cx.spawn(|cx| async move {
-            loop {
-                cx.background_executor()
-                    .timer(std::time::Duration::from_millis(150))
-                    .await;
-                let mut worked = false;
-                let _ = cx.update(|cx| {
-                    let before = pending_counts(cx);
-                    drain_host_events(cx);
-                    drain_settings_queue(cx);
-                    let after = pending_counts(cx);
-                    worked = before != after;
-                });
-                if worked {
-                    let _ = cx.update(|cx| cx.refresh());
-                }
+        cx.spawn(async move |cx: &mut AsyncApp| loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(150))
+                .await;
+            let mut worked = false;
+            let _ = cx.update(|cx| {
+                let before = pending_counts(cx);
+                drain_host_events(cx);
+                drain_settings_queue(cx);
+                let after = pending_counts(cx);
+                worked = before != after;
+            });
+            if worked {
+                let _ = cx.update(|cx| cx.refresh_windows());
             }
         })
         .detach();

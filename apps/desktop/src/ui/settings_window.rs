@@ -66,10 +66,11 @@ impl Render for SettingsView {
             let label = engine.label();
             engine_rows = engine_rows.child(engine_row(
                 &theme,
-                cx,
-                move |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
-                    this.push(BrowserCommand::SetSearchEngine { engine: *engine }, cx);
-                },
+                cx.listener(
+                    move |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
+                        this.push(BrowserCommand::SetSearchEngine { engine: *engine }, cx);
+                    },
+                ),
                 label,
                 selected,
             ));
@@ -80,16 +81,17 @@ impl Render for SettingsView {
             let description = flag.description();
             flag_rows = flag_rows.child(flag_row(
                 &theme,
-                cx,
-                move |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
-                    this.push(
-                        BrowserCommand::ToggleFlag {
-                            flag: *flag,
-                            enabled: !enabled,
-                        },
-                        cx,
-                    );
-                },
+                cx.listener(
+                    move |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
+                        this.push(
+                            BrowserCommand::ToggleFlag {
+                                flag: *flag,
+                                enabled: !enabled,
+                            },
+                            cx,
+                        );
+                    },
+                ),
                 description,
                 enabled,
             ));
@@ -103,7 +105,6 @@ impl Render for SettingsView {
             .text_color(theme.text)
             .p(px(24.0))
             .gap(px(20.0))
-            .overflow_y_scroll()
             .child(header(&theme, "Settings"))
             .child(
                 section(&theme, "Appearance")
@@ -182,9 +183,8 @@ fn option_row(
     id: &'static str,
     label: &'static str,
     selected: bool,
-    on_press: impl Fn(&mut SettingsView, &MouseDownEvent, &mut Window, &mut Context<SettingsView>)
-        + 'static,
-) -> Div {
+    on_press: impl Fn(&MouseDownEvent, &mut Window, &mut gpui::App) + 'static,
+) -> impl IntoElement {
     div()
         .id(id)
         .flex()
@@ -197,19 +197,17 @@ fn option_row(
         .text_size(px(13.0))
         .when(selected, |style| style.bg(theme.menu_hover))
         .hover(|style| style.bg(theme.menu_hover))
-        .on_mouse_down(MouseButton::Left, cx.listener(on_press))
+        .on_mouse_down(MouseButton::Left, on_press)
         .child(radio_dot(theme, selected))
         .child(label)
 }
 
 fn engine_row(
     theme: &ChromeTheme,
-    cx: &Context<SettingsView>,
-    on_press: impl Fn(&mut SettingsView, &MouseDownEvent, &mut Window, &mut Context<SettingsView>)
-        + 'static,
+    on_press: impl Fn(&MouseDownEvent, &mut Window, &mut gpui::App) + 'static,
     label: &'static str,
     selected: bool,
-) -> Div {
+) -> impl IntoElement {
     div()
         .id(SharedString::from(format!("engine-{label}")))
         .flex()
@@ -221,19 +219,17 @@ fn engine_row(
         .rounded(px(6.0))
         .text_size(px(13.0))
         .hover(|style| style.bg(theme.menu_hover))
-        .on_mouse_down(MouseButton::Left, cx.listener(on_press))
+        .on_mouse_down(MouseButton::Left, on_press)
         .child(radio_dot(theme, selected))
         .child(label)
 }
 
 fn flag_row(
     theme: &ChromeTheme,
-    cx: &Context<SettingsView>,
-    on_press: impl Fn(&mut SettingsView, &MouseDownEvent, &mut Window, &mut Context<SettingsView>)
-        + 'static,
+    on_press: impl Fn(&MouseDownEvent, &mut Window, &mut gpui::App) + 'static,
     description: &'static str,
     enabled: bool,
-) -> Div {
+) -> impl IntoElement {
     div()
         .id(SharedString::from(format!("flag-{description}")))
         .flex()
@@ -245,7 +241,7 @@ fn flag_row(
         .rounded(px(6.0))
         .text_size(px(13.0))
         .hover(|style| style.bg(theme.menu_hover))
-        .on_mouse_down(MouseButton::Left, cx.listener(on_press))
+        .on_mouse_down(MouseButton::Left, on_press)
         .child(description)
         .child(toggle(theme, enabled))
 }

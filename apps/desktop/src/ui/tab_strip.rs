@@ -2,16 +2,16 @@
 //! `enable_drag_tabs` feature flag.
 
 use gpui::{
-    div, prelude::*, px, Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, SharedString,
+    div, prelude::*, px, Context, MouseButton, MouseDownEvent, MouseMoveEvent, SharedString,
     Styled, Window,
 };
 
-use crate::browser::BrowserWindow;
 use crate::domain::command::BrowserCommand;
 use crate::domain::settings::FeatureFlag;
-use crate::domain::tab::{Tab, TabId};
+use crate::domain::tab::Tab;
 use crate::ui::app::{lock, BrowserShell};
 use crate::ui::theme::{ChromeTheme, TAB_STRIP_HEIGHT};
+use crate::ui::window::BrowserWindow;
 
 /// Pixels of movement past which a held tab tears off into a new window.
 const DRAG_THRESHOLD: f32 = 24.0;
@@ -21,7 +21,7 @@ pub fn render(
     theme: &ChromeTheme,
     _window: &mut Window,
     cx: &mut Context<BrowserWindow>,
-) -> Div {
+) -> impl IntoElement {
     let (tabs, active_tab, drag_enabled) = {
         let shell = cx.global::<BrowserShell>();
         let session = lock(&shell.session);
@@ -96,7 +96,7 @@ fn render_tab(
     drag_enabled: bool,
     theme: &ChromeTheme,
     cx: &mut Context<BrowserWindow>,
-) -> Div {
+) -> impl IntoElement {
     let tab_id = tab.id;
     let title = tab.display_title().to_string();
     div()
@@ -167,7 +167,8 @@ fn handle_drag_move(
         this.drag_press = None;
         return;
     }
-    let distance = (event.position.x - origin.x).abs().0 + (event.position.y - origin.y).abs().0;
+    let distance = f32::from((event.position.x - origin.x).abs())
+        + f32::from((event.position.y - origin.y).abs());
     if distance > DRAG_THRESHOLD {
         this.drag_press = None;
         this.run_command(BrowserCommand::DragOutTab { tab }, window, cx);
