@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
+use dpi::{LogicalPosition, LogicalSize, Position, Size};
 use raw_window_handle::HasWindowHandle;
 use wry::WebContext;
 
@@ -208,6 +209,11 @@ impl WebviewHost {
         self.webviews.remove(&tab).is_some()
     }
 
+    /// True when a native surface exists for .
+    pub fn has(&self, tab: TabId) -> bool {
+        self.webviews.contains_key(&tab)
+    }
+
     pub fn attached_tabs(&self) -> Vec<TabId> {
         let mut tabs: Vec<TabId> = self.webviews.keys().copied().collect();
         tabs.sort();
@@ -236,11 +242,8 @@ impl WebviewHost {
 
 fn logical_rect(rect: RectPx) -> wry::Rect {
     wry::Rect {
-        position: wry::Position::Logical(wry::dpi::LogicalPosition::new(
-            f64::from(rect.x),
-            f64::from(rect.y),
-        )),
-        size: wry::Size::Logical(wry::dpi::LogicalSize::new(
+        position: Position::Logical(LogicalPosition::new(f64::from(rect.x), f64::from(rect.y))),
+        size: Size::Logical(LogicalSize::new(
             f64::from(rect.width),
             f64::from(rect.height),
         )),

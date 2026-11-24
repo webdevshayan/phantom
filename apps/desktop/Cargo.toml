@@ -21,7 +21,7 @@ default = ["ui-shell", "webview-host"]
 # The chrome drives the webview host, so it implies it.
 ui-shell = ["dep:gpui", "webview-host"]
 # wry-backed webview hosting with per-space isolated data directories.
-webview-host = ["dep:wry"]
+webview-host = ["dep:wry", "dep:dpi", "dep:raw-window-handle"]
 
 [dependencies]
 rusqlite = { version = "0.43", features = ["bundled"] }
@@ -29,6 +29,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 url = "2"
+dpi = { version = "0.1", optional = true }
 raw-window-handle = { version = "0.6", optional = true }
 gpui = { version = "0.2", optional = true }
 wry = { version = "0.57", optional = true, features = ["devtools"] }
