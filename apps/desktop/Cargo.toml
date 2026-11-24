@@ -18,7 +18,8 @@ path = "src/main.rs"
 [features]
 default = ["ui-shell", "webview-host"]
 # GPUI-drawn browser chrome: tab strip, omnibox, menus, settings window.
-ui-shell = ["dep:gpui"]
+# The chrome drives the webview host, so it implies it.
+ui-shell = ["dep:gpui", "webview-host"]
 # wry-backed webview hosting with per-space isolated data directories.
 webview-host = ["dep:wry"]
 
