@@ -11,3 +11,5 @@
 //! so the model and persistence layers build and test on a bare toolchain.
 
 pub mod domain;
+pub mod infra;
+pub mod webview;
