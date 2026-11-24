@@ -321,7 +321,9 @@ impl PhantomSession {
                         .map(|tab| TabSnapshot {
                             id: tab.id,
                             space: tab.space.clone(),
-                            title: tab.title.clone(),
+                            // persist the display title so restored strips
+                            // show hosts instead of the sentinel label
+                            title: tab.display_title().to_string(),
                             url: tab.url.as_ref().map(|url| url.to_string()),
                         })
                         .collect(),
