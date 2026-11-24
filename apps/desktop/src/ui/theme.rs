@@ -1,7 +1,7 @@
 //! Chrome color tokens. Light and Dark are fixed palettes; `System` resolves
 //! against the OS color scheme reported by the platform.
 
-use gpui::{Hsla, Window, WindowAppearance, rgb};
+use gpui::{rgb, Hsla, Window, WindowAppearance};
 
 use crate::domain::settings::Theme;
 

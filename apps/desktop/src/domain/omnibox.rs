@@ -66,9 +66,7 @@ fn looks_like_host(input: &str) -> bool {
     if host.is_empty() {
         return false;
     }
-    host == "localhost"
-        || host.parse::<std::net::Ipv4Addr>().is_ok()
-        || host.contains('.')
+    host == "localhost" || host.parse::<std::net::Ipv4Addr>().is_ok() || host.contains('.')
 }
 
 /// Text-editing state behind the omnibox widget. Kept in the domain layer so
@@ -207,7 +205,12 @@ mod tests {
 
     #[test]
     fn promotes_host_like_input_to_http() {
-        for input in ["example.com", "example.com:8080/path", "localhost", "127.0.0.1"] {
+        for input in [
+            "example.com",
+            "example.com:8080/path",
+            "localhost",
+            "127.0.0.1",
+        ] {
             let expected = Url::parse(&format!("http://{input}")).unwrap();
             assert_eq!(classify(input), OmniboxInput::Url(expected), "{input}");
         }
@@ -219,14 +222,26 @@ mod tests {
 
     #[test]
     fn sends_text_and_dangerous_schemes_to_search() {
-        assert_eq!(classify("rust vs go benchmark"), OmniboxInput::Search("rust vs go benchmark".into()));
+        assert_eq!(
+            classify("rust vs go benchmark"),
+            OmniboxInput::Search("rust vs go benchmark".into())
+        );
         assert_eq!(classify(""), OmniboxInput::Search(String::new()));
         assert_eq!(classify("   "), OmniboxInput::Search(String::new()));
         assert_eq!(classify("1 + 1"), OmniboxInput::Search("1 + 1".into()));
         // typed javascript: is refused as navigation and treated as text
-        assert!(matches!(classify("javascript:alert(1)"), OmniboxInput::Search(_)));
-        assert!(matches!(classify("data:text/html,hi"), OmniboxInput::Search(_)));
-        assert!(matches!(classify("blob:https://x"), OmniboxInput::Search(_)));
+        assert!(matches!(
+            classify("javascript:alert(1)"),
+            OmniboxInput::Search(_)
+        ));
+        assert!(matches!(
+            classify("data:text/html,hi"),
+            OmniboxInput::Search(_)
+        ));
+        assert!(matches!(
+            classify("blob:https://x"),
+            OmniboxInput::Search(_)
+        ));
     }
 
     #[test]

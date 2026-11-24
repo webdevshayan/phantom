@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex, PoisonError, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use gpui::{
     px, App, Application, Bounds, Context, Global, Point, Size, TitlebarOptions, WindowBounds,
@@ -14,8 +14,8 @@ use gpui::{
 use crate::browser::{PhantomSession, WindowId};
 use crate::domain::settings::Settings;
 use crate::infra::db::{Store, WindowBounds as StoredBounds};
-use crate::infra::settings_store;
 use crate::infra::paths;
+use crate::infra::settings_store;
 use crate::ui::actions;
 use crate::ui::settings_window::SettingsView;
 use crate::ui::window::BrowserWindow;
@@ -51,7 +51,11 @@ pub(crate) fn drain_host_events(cx: &App) {
             HostEvent::NavigationStateChanged { tab, state } => {
                 let _ = session.report_navigation(tab, state);
             }
-            HostEvent::OpenInNewTab { tab, url, background } => {
+            HostEvent::OpenInNewTab {
+                tab,
+                url,
+                background,
+            } => {
                 let _ = session.report_open_request(tab, url, background);
             }
         }
@@ -98,28 +102,24 @@ pub(crate) fn open_browser_window(
 }
 
 fn restored_bounds(stored: Option<StoredBounds>, maximized: bool, cx: &App) -> WindowBounds {
-    let bounds = stored.and_then(|stored| match (
-        stored.x,
-        stored.y,
-        stored.width,
-        stored.height,
-    ) {
-        (Some(x), Some(y), Some(width), Some(height))
-            if width > 0.0 && height > 0.0 =>
-        {
-            Some(Bounds {
-                origin: Point {
-                    x: px(x as f32),
-                    y: px(y as f32),
-                },
-                size: Size {
-                    width: px(width as f32),
-                    height: px(height as f32),
-                },
-            })
-        }
-        _ => None,
-    });
+    let bounds =
+        stored.and_then(
+            |stored| match (stored.x, stored.y, stored.width, stored.height) {
+                (Some(x), Some(y), Some(width), Some(height)) if width > 0.0 && height > 0.0 => {
+                    Some(Bounds {
+                        origin: Point {
+                            x: px(x as f32),
+                            y: px(y as f32),
+                        },
+                        size: Size {
+                            width: px(width as f32),
+                            height: px(height as f32),
+                        },
+                    })
+                }
+                _ => None,
+            },
+        );
     match (bounds, maximized) {
         (Some(bounds), true) => WindowBounds::Maximized(bounds),
         (Some(bounds), false) => WindowBounds::Windowed(bounds),
@@ -167,8 +167,8 @@ pub(crate) fn open_settings_window(cx: &mut App) {
 
 /// Entry point of the desktop shell.
 pub fn launch(profile: PathBuf) {
-    let db_path = paths::ensure_profile_dirs(&profile)
-        .expect("phantom: cannot create the profile directory");
+    let db_path =
+        paths::ensure_profile_dirs(&profile).expect("phantom: cannot create the profile directory");
     let store = Store::open(&db_path).expect("phantom: cannot open the state database");
     let settings = settings_store::load_or_default(&store).unwrap_or_else(|_| Settings::default());
     let mut session = PhantomSession::new(store, settings);

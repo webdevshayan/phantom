@@ -42,12 +42,17 @@ impl FeatureFlag {
     }
 
     pub fn from_id(raw: &str) -> Option<Self> {
-        FeatureFlag::ALL.iter().copied().find(|flag| flag.id() == raw)
+        FeatureFlag::ALL
+            .iter()
+            .copied()
+            .find(|flag| flag.id() == raw)
     }
 
     pub fn description(self) -> &'static str {
         match self {
-            FeatureFlag::EnableTiling => "Split the window into panes (horizontal / vertical tiling)",
+            FeatureFlag::EnableTiling => {
+                "Split the window into panes (horizontal / vertical tiling)"
+            }
             FeatureFlag::EnableDragTabs => "Drag a tab out of the strip to open it in a new window",
             FeatureFlag::EnableAutoUpdater => "Check for Phantom updates in the background",
         }
@@ -181,7 +186,10 @@ mod tests {
         for flag in FeatureFlag::ALL {
             assert_eq!(FeatureFlag::from_id(flag.id()), Some(*flag));
         }
-        assert_eq!(FeatureFlag::from_id("enable_tiling"), Some(FeatureFlag::EnableTiling));
+        assert_eq!(
+            FeatureFlag::from_id("enable_tiling"),
+            Some(FeatureFlag::EnableTiling)
+        );
         assert_eq!(FeatureFlag::from_id("enable_flying"), None);
     }
 

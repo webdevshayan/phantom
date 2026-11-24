@@ -58,7 +58,14 @@ pub fn render(
         .px_1()
         .bg(theme.toolbar_background)
         .child(button(theme, "back", "←", can_go_back, cx, on_back))
-        .child(button(theme, "forward", "→", can_go_forward, cx, on_forward))
+        .child(button(
+            theme,
+            "forward",
+            "→",
+            can_go_forward,
+            cx,
+            on_forward,
+        ))
         .child(if is_loading {
             button(theme, "stop", "✕", true, cx, on_stop)
         } else {
@@ -81,7 +88,9 @@ pub fn render(
                 .child("⋮")
                 .on_mouse_down(MouseButton::Left, on_menu),
         )
-        .when(state.menu_open, |row| row.child(menu::render(state, theme, cx)))
+        .when(state.menu_open, |row| {
+            row.child(menu::render(state, theme, cx))
+        })
 }
 
 fn button(
@@ -91,7 +100,7 @@ fn button(
     enabled: bool,
     cx: &Context<BrowserWindow>,
     on_press: impl Fn(&mut BrowserWindow, &gpui::MouseDownEvent, &mut Window, &mut Context<BrowserWindow>)
-    + 'static,
+        + 'static,
 ) -> Div {
     let base = div()
         .id(id)

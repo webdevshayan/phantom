@@ -1,8 +1,6 @@
 //! The omnibox: url/search input built on the domain caret buffer.
 
-use gpui::{
-    div, prelude::*, px, Context, Div, KeyDownEvent, MouseButton, Styled, Window,
-};
+use gpui::{div, prelude::*, px, Context, Div, KeyDownEvent, MouseButton, Styled, Window};
 
 use crate::browser::BrowserWindow;
 use crate::domain::command::{BrowserCommand, NavigationTarget};
@@ -34,13 +32,16 @@ pub fn render(
         .text_color(theme.omnibox_text)
         .text_size(px(13.0))
         .overflow_hidden()
-        .on_mouse_down(MouseButton::Left, cx.listener(|this, _event, window, cx| {
-            if !this.omnibox.is_focused() {
-                this.omnibox.focus(false);
-                window.focus(&this.omnibox_focus);
-                cx.notify();
-            }
-        }))
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(|this, _event, window, cx| {
+                if !this.omnibox.is_focused() {
+                    this.omnibox.focus(false);
+                    window.focus(&this.omnibox_focus);
+                    cx.notify();
+                }
+            }),
+        )
         .on_key_down(cx.listener(handle_omnibox_key))
         .child(render_caret_text(state, theme))
 }
@@ -131,7 +132,8 @@ fn handle_omnibox_key(
         return;
     }
     // printable characters: plain or shift-modified single-character keys
-    let control_held = modifiers.control || modifiers.alt || modifiers.platform || modifiers.function;
+    let control_held =
+        modifiers.control || modifiers.alt || modifiers.platform || modifiers.function;
     if !control_held && key.chars().count() == 1 {
         this.omnibox.insert(&key);
         cx.notify();
@@ -153,11 +155,7 @@ fn commit(this: &mut BrowserWindow, window: &mut Window, cx: &mut Context<Browse
     let Some(tab) = this.active_tab_id(cx) else {
         return;
     };
-    this.run_command(
-        BrowserCommand::Navigate { tab, target },
-        window,
-        cx,
-    );
+    this.run_command(BrowserCommand::Navigate { tab, target }, window, cx);
 }
 
 fn active_tab_url(this: &BrowserWindow, cx: &Context<BrowserWindow>) -> Option<String> {

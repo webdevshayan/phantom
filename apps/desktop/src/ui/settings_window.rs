@@ -5,8 +5,8 @@
 use std::sync::{Arc, Mutex};
 
 use gpui::{
-    div, prelude::*, px, Context, Div, FontWeight, MouseDownEvent, MouseButton, Render, SharedString,
-    Styled, Window,
+    div, prelude::*, px, Context, Div, FontWeight, MouseButton, MouseDownEvent, Render,
+    SharedString, Styled, Window,
 };
 
 use crate::domain::command::BrowserCommand;
@@ -41,21 +41,25 @@ impl Render for SettingsView {
         };
         let theme = theme::resolve(settings.theme, theme::os_prefers_dark(window));
 
-        let on_light = cx.listener(
-            |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
-                this.push(BrowserCommand::SetTheme { theme: Theme::Light }, cx);
-            },
-        );
-        let on_dark = cx.listener(
-            |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
-                this.push(BrowserCommand::SetTheme { theme: Theme::Dark }, cx);
-            },
-        );
-        let on_system = cx.listener(
-            |this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
-                this.push(BrowserCommand::SetTheme { theme: Theme::System }, cx);
-            },
-        );
+        let on_light = cx.listener(|this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
+            this.push(
+                BrowserCommand::SetTheme {
+                    theme: Theme::Light,
+                },
+                cx,
+            );
+        });
+        let on_dark = cx.listener(|this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
+            this.push(BrowserCommand::SetTheme { theme: Theme::Dark }, cx);
+        });
+        let on_system = cx.listener(|this: &mut SettingsView, _e: &MouseDownEvent, _w, cx| {
+            this.push(
+                BrowserCommand::SetTheme {
+                    theme: Theme::System,
+                },
+                cx,
+            );
+        });
         let mut engine_rows = div().flex().flex_col().gap(px(4.0));
         for engine in SearchEngine::ALL {
             let selected = settings.search_engine == *engine;
@@ -103,9 +107,30 @@ impl Render for SettingsView {
             .child(header(&theme, "Settings"))
             .child(
                 section(&theme, "Appearance")
-                    .child(option_row(&theme, cx, "theme-light", "Light", settings.theme == Theme::Light, on_light))
-                    .child(option_row(&theme, cx, "theme-dark", "Dark", settings.theme == Theme::Dark, on_dark))
-                    .child(option_row(&theme, cx, "theme-system", "System", settings.theme == Theme::System, on_system)),
+                    .child(option_row(
+                        &theme,
+                        cx,
+                        "theme-light",
+                        "Light",
+                        settings.theme == Theme::Light,
+                        on_light,
+                    ))
+                    .child(option_row(
+                        &theme,
+                        cx,
+                        "theme-dark",
+                        "Dark",
+                        settings.theme == Theme::Dark,
+                        on_dark,
+                    ))
+                    .child(option_row(
+                        &theme,
+                        cx,
+                        "theme-system",
+                        "System",
+                        settings.theme == Theme::System,
+                        on_system,
+                    )),
             )
             .child(section(&theme, "Search engine").child(engine_rows))
             .child(section(&theme, "Feature flags").child(flag_rows))
@@ -245,5 +270,11 @@ fn toggle(theme: &ChromeTheme, on: bool) -> Div {
         .px(px(2.0))
         .when(on, |pill| pill.bg(theme.toggle_on).justify_end())
         .when(!on, |pill| pill.bg(theme.toggle_off).justify_start())
-        .child(div().w(px(14.0)).h(px(14.0)).rounded_full().bg(gpui::white()))
+        .child(
+            div()
+                .w(px(14.0))
+                .h(px(14.0))
+                .rounded_full()
+                .bg(gpui::white()),
+        )
 }

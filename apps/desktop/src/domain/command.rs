@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::domain::layout::{PaneId, SplitDirection};
@@ -50,24 +49,63 @@ impl NavigationTarget {
 /// emitting effects, so UI bugs cannot bypass the model.
 #[derive(Clone, Debug)]
 pub enum BrowserCommand {
-    Navigate { tab: TabId, target: NavigationTarget },
-    GoBack { tab: TabId },
-    GoForward { tab: TabId },
-    Reload { tab: TabId },
-    StopLoading { tab: TabId },
-    NewTab { space: SpaceId, target: NavigationTarget },
-    CloseTab { tab: TabId },
-    ActivateTab { tab: TabId },
-    NewWindow { space: SpaceId },
-    DragOutTab { tab: TabId },
-    SplitPane { pane: PaneId, direction: SplitDirection, target: NavigationTarget },
-    ClosePane { pane: PaneId },
-    FocusPane { pane: PaneId },
-    ToggleDevTools { tab: TabId },
+    Navigate {
+        tab: TabId,
+        target: NavigationTarget,
+    },
+    GoBack {
+        tab: TabId,
+    },
+    GoForward {
+        tab: TabId,
+    },
+    Reload {
+        tab: TabId,
+    },
+    StopLoading {
+        tab: TabId,
+    },
+    NewTab {
+        space: SpaceId,
+        target: NavigationTarget,
+    },
+    CloseTab {
+        tab: TabId,
+    },
+    ActivateTab {
+        tab: TabId,
+    },
+    NewWindow {
+        space: SpaceId,
+    },
+    DragOutTab {
+        tab: TabId,
+    },
+    SplitPane {
+        pane: PaneId,
+        direction: SplitDirection,
+        target: NavigationTarget,
+    },
+    ClosePane {
+        pane: PaneId,
+    },
+    FocusPane {
+        pane: PaneId,
+    },
+    ToggleDevTools {
+        tab: TabId,
+    },
     OpenSettings,
-    SetTheme { theme: Theme },
-    SetSearchEngine { engine: SearchEngine },
-    ToggleFlag { flag: FeatureFlag, enabled: bool },
+    SetTheme {
+        theme: Theme,
+    },
+    SetSearchEngine {
+        engine: SearchEngine,
+    },
+    ToggleFlag {
+        flag: FeatureFlag,
+        enabled: bool,
+    },
 }
 
 #[cfg(test)]
@@ -76,7 +114,12 @@ mod tests {
 
     #[test]
     fn navigation_allowlist() {
-        for good in ["http://a.b", "https://example.com", "file:///tmp/x", "phantom://newtab"] {
+        for good in [
+            "http://a.b",
+            "https://example.com",
+            "file:///tmp/x",
+            "phantom://newtab",
+        ] {
             let url = Url::parse(good).unwrap();
             assert_eq!(validate_navigation(&url), Ok(()), "{good}");
         }

@@ -72,7 +72,9 @@ impl BrowserWindow {
     pub(crate) fn focused_pane_id(&self, cx: &Context<Self>) -> Option<PaneId> {
         let shell = cx.global::<BrowserShell>();
         let session = lock(&shell.session);
-        session.window(self.window_id).map(|window| window.focused_pane)
+        session
+            .window(self.window_id)
+            .map(|window| window.focused_pane)
     }
 
     /// Runs one session command from this window and executes the effects
@@ -166,13 +168,20 @@ impl BrowserWindow {
     ) {
         for effect in effects {
             match effect {
-                Effect::AttachWebview { window: owner, tab, space, url }
-                    if owner == self.window_id =>
-                {
+                Effect::AttachWebview {
+                    window: owner,
+                    tab,
+                    space,
+                    url,
+                } if owner == self.window_id => {
                     let sender = self.events_sender(cx);
                     let _ = self.host.attach(window, tab, &space, &url, sender);
                 }
-                Effect::LoadUrl { window: owner, tab, url } if owner == self.window_id => {
+                Effect::LoadUrl {
+                    window: owner,
+                    tab,
+                    url,
+                } if owner == self.window_id => {
                     let _ = self.host.navigate(tab, &url);
                 }
                 Effect::DetachWebview { tab } => {
@@ -193,7 +202,11 @@ impl BrowserWindow {
                 Effect::ToggleDevTools { tab } => {
                     self.host.toggle_devtools(tab);
                 }
-                Effect::OpenWindow { window: new_id, bounds, maximized } => {
+                Effect::OpenWindow {
+                    window: new_id,
+                    bounds,
+                    maximized,
+                } => {
                     let profile = cx.global::<BrowserShell>().profile.clone();
                     crate::ui::app::open_browser_window(cx, new_id, bounds, maximized, profile);
                 }
@@ -236,7 +249,10 @@ impl BrowserWindow {
         for (_pane, tab_id) in state.layout.pane_tab_pairs() {
             if !self.host.has(tab_id) {
                 if let Some(tab) = state.tab(tab_id) {
-                    let url = tab.url.clone().unwrap_or_else(crate::webview::internal_pages::new_tab_url);
+                    let url = tab
+                        .url
+                        .clone()
+                        .unwrap_or_else(crate::webview::internal_pages::new_tab_url);
                     let space = tab.space.clone();
                     let sender = self.events_sender(cx);
                     let _ = self.host.attach(window, tab_id, &space, &url, sender);
@@ -303,10 +319,13 @@ impl Render for BrowserWindow {
             return div().size_full().bg(gpui::black());
         };
         let theme = theme::resolve(settings_copy.theme, theme::os_prefers_dark(window));
-        self.host.set_chrome(settings_copy.theme, settings_copy.search_engine);
+        self.host
+            .set_chrome(settings_copy.theme, settings_copy.search_engine);
 
         // the window title follows the active tab
-        let title = state.active_tab().map(|tab| tab.display_title().to_string());
+        let title = state
+            .active_tab()
+            .map(|tab| tab.display_title().to_string());
         if title.is_some() && title != self.last_title {
             window.set_window_title(title.clone().expect("checked above"));
             self.last_title = title;
@@ -341,16 +360,18 @@ impl Render for BrowserWindow {
             .overflow_hidden()
             .bg(theme.window_background)
             .text_color(theme.text)
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::NewTab, window, cx| this.new_tab(window, cx),
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::CloseTab, window, cx| {
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::NewTab, window, cx| {
+                    this.new_tab(window, cx)
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::CloseTab, window, cx| {
                     this.command_on_active_tab(|tab| BrowserCommand::CloseTab { tab }, window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::NewWindow, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::NewWindow, window, cx| {
                     this.run_command(
                         BrowserCommand::NewWindow {
                             space: SpaceId::default_space(),
@@ -358,65 +379,71 @@ impl Render for BrowserWindow {
                         window,
                         cx,
                     );
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::FocusOmnibox, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::FocusOmnibox, window, cx| {
                     this.focus_omnibox(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::GoBack, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::GoBack, window, cx| {
                     this.command_on_active_tab(|tab| BrowserCommand::GoBack { tab }, window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::GoForward, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::GoForward, window, cx| {
                     this.command_on_active_tab(|tab| BrowserCommand::GoForward { tab }, window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::Reload, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::Reload, window, cx| {
                     this.command_on_active_tab(|tab| BrowserCommand::Reload { tab }, window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::StopLoading, window, cx| {
-                    this.command_on_active_tab(|tab| BrowserCommand::StopLoading { tab }, window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::DevTools, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::StopLoading, window, cx| {
+                    this.command_on_active_tab(
+                        |tab| BrowserCommand::StopLoading { tab },
+                        window,
+                        cx,
+                    );
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::DevTools, window, cx| {
                     this.command_on_active_tab(
                         |tab| BrowserCommand::ToggleDevTools { tab },
                         window,
                         cx,
                     );
-                },
-            ))
-            .on_action(cx.listener(|this: &mut Self, _a: &actions::OpenSettings, _window, cx| {
-                this.open_settings(cx);
-            }))
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::OpenSettings, _window, cx| {
+                    this.open_settings(cx);
+                }),
+            )
             .on_action(cx.listener(
                 |this: &mut Self, _a: &actions::SplitHorizontal, window, cx| {
                     this.split(SplitDirection::Horizontal, window, cx);
                 },
             ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::SplitVertical, window, cx| {
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::SplitVertical, window, cx| {
                     this.split(SplitDirection::Vertical, window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::ClosePane, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::ClosePane, window, cx| {
                     let pane = this.focused_pane_id(cx);
                     if let Some(pane) = pane {
                         this.run_command(BrowserCommand::ClosePane { pane }, window, cx);
                     }
-                },
-            ))
-            .on_action(cx.listener(
-                |this: &mut Self, _a: &actions::FocusNextPane, window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::FocusNextPane, window, cx| {
                     let shell = cx.global::<BrowserShell>();
                     let next = {
                         let session = lock(&shell.session);
@@ -428,11 +455,13 @@ impl Render for BrowserWindow {
                     if let Some(pane) = next {
                         this.run_command(BrowserCommand::FocusPane { pane }, window, cx);
                     }
-                },
-            ))
-            .on_action(cx.listener(|this: &mut Self, _a: &actions::Quit, _window, cx| {
-                this.quit(cx);
-            }))
+                }),
+            )
+            .on_action(
+                cx.listener(|this: &mut Self, _a: &actions::Quit, _window, cx| {
+                    this.quit(cx);
+                }),
+            )
             .child(tab_strip::render(self, &theme, window, cx))
             .child(toolbar::render(self, &theme, window, cx))
             .child(

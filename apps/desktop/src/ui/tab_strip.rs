@@ -2,7 +2,7 @@
 //! `enable_drag_tabs` feature flag.
 
 use gpui::{
-    div, prelude::*, px, Context, Div, MouseDownEvent, MouseMoveEvent, MouseButton, SharedString,
+    div, prelude::*, px, Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, SharedString,
     Styled, Window,
 };
 
@@ -42,16 +42,28 @@ pub fn render(
         .h(px(TAB_STRIP_HEIGHT))
         .pl_1()
         .bg(theme.window_background)
-        .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, window, cx| {
-            handle_drag_move(this, event, drag_enabled, window, cx);
-        }))
-        .on_mouse_up(MouseButton::Left, cx.listener(|this, _event, _window, cx| {
-            if this.drag_press.take().is_some() {
-                cx.notify();
-            }
-        }))
+        .on_mouse_move(
+            cx.listener(move |this, event: &MouseMoveEvent, window, cx| {
+                handle_drag_move(this, event, drag_enabled, window, cx);
+            }),
+        )
+        .on_mouse_up(
+            MouseButton::Left,
+            cx.listener(|this, _event, _window, cx| {
+                if this.drag_press.take().is_some() {
+                    cx.notify();
+                }
+            }),
+        )
         .children(tabs.iter().map(|tab| {
-            render_tab(state, tab, active_tab == Some(tab.id), drag_enabled, theme, cx)
+            render_tab(
+                state,
+                tab,
+                active_tab == Some(tab.id),
+                drag_enabled,
+                theme,
+                cx,
+            )
         }))
         .child(
             div()
@@ -68,9 +80,12 @@ pub fn render(
                 .text_color(theme.text_muted)
                 .hover(|style| style.bg(theme.tab_hover_background))
                 .child("+")
-                .on_mouse_down(MouseButton::Left, cx.listener(|this, _event, window, cx| {
-                    this.new_tab(window, cx);
-                })),
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _event, window, cx| {
+                        this.new_tab(window, cx);
+                    }),
+                ),
         )
 }
 
@@ -97,9 +112,7 @@ fn render_tab(
         .text_size(px(12.5))
         .overflow_hidden()
         .when(is_active, |style| {
-            style
-                .bg(theme.tab_active_background)
-                .text_color(theme.text)
+            style.bg(theme.tab_active_background).text_color(theme.text)
         })
         .when(!is_active, |style| {
             style
@@ -107,16 +120,14 @@ fn render_tab(
                 .text_color(theme.text_muted)
                 .hover(|style| style.bg(theme.tab_hover_background))
         })
-        .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-            this.drag_press = drag_enabled.then_some((tab_id, event.position));
-            this.run_command(BrowserCommand::ActivateTab { tab: tab_id }, window, cx);
-        }))
-        .child(
-            div()
-                .flex_1()
-                .truncate()
-                .child(SharedString::from(title)),
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                this.drag_press = drag_enabled.then_some((tab_id, event.position));
+                this.run_command(BrowserCommand::ActivateTab { tab: tab_id }, window, cx);
+            }),
         )
+        .child(div().flex_1().truncate().child(SharedString::from(title)))
         .child(
             div()
                 .id(SharedString::from(format!("close-{tab_id}")))
@@ -129,13 +140,17 @@ fn render_tab(
                 .text_size(px(11.0))
                 .hover(|style| style.bg(theme.tab_hover_background))
                 .child("✕")
-                .on_mouse_down(MouseButton::Left, cx.listener(move |this, _event, window, cx| {
-                    this.run_command(BrowserCommand::CloseTab { tab: tab_id }, window, cx);
-                })),
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _event, window, cx| {
+                        this.run_command(BrowserCommand::CloseTab { tab: tab_id }, window, cx);
+                    }),
+                ),
         )
-        .when(state.drag_press.map(|(pressed, _)| pressed) == Some(tab_id), |style| {
-            style.border_1().border_color(theme.accent)
-        })
+        .when(
+            state.drag_press.map(|(pressed, _)| pressed) == Some(tab_id),
+            |style| style.border_1().border_color(theme.accent),
+        )
 }
 
 fn handle_drag_move(

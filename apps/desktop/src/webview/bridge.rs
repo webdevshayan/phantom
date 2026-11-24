@@ -67,6 +67,10 @@ mod tests {
     #[test]
     fn bridge_stays_small_enough_to_inject_everywhere() {
         // it ships in every webview of every space; keep it lean
-        assert!(STATE_BRIDGE_JS.len() < 4 * 1024, "{} bytes", STATE_BRIDGE_JS.len());
+        assert!(
+            STATE_BRIDGE_JS.len() < 4 * 1024,
+            "{} bytes",
+            STATE_BRIDGE_JS.len()
+        );
     }
 }

@@ -1,7 +1,7 @@
 //! The 3-dot dropdown menu. Tiling entries gray out while `enable_tiling`
 //! is off, mirroring the switches in the settings window.
 
-use gpui::{div, prelude::*, px, Context, Div, MouseDownEvent, MouseButton, Styled};
+use gpui::{div, prelude::*, px, Context, Div, MouseButton, MouseDownEvent, Styled};
 
 use crate::browser::BrowserWindow;
 use crate::domain::command::BrowserCommand;
@@ -27,10 +27,12 @@ pub fn render(state: &BrowserWindow, theme: &ChromeTheme, cx: &Context<BrowserWi
         )
     };
 
-    let close_menu = cx.listener(|this: &mut BrowserWindow, _event: &MouseDownEvent, _window, cx| {
-        this.menu_open = false;
-        cx.notify();
-    });
+    let close_menu = cx.listener(
+        |this: &mut BrowserWindow, _event: &MouseDownEvent, _window, cx| {
+            this.menu_open = false;
+            cx.notify();
+        },
+    );
 
     div()
         .id("chrome-menu")
@@ -187,7 +189,7 @@ fn entry(
     enabled: bool,
     cx: &Context<BrowserWindow>,
     on_press: impl Fn(&mut BrowserWindow, &MouseDownEvent, &mut gpui::Window, &mut Context<BrowserWindow>)
-    + 'static,
+        + 'static,
 ) -> Div {
     let base = div()
         .id(id)

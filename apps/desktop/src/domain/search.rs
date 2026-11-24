@@ -46,7 +46,9 @@ impl SearchEngine {
 
     /// Builds the search url for a query, percent-encoding the value.
     pub fn search_url(self, query: &str) -> Url {
-        let raw = self.query_template().replace("{query}", &encode_query_value(query));
+        let raw = self
+            .query_template()
+            .replace("{query}", &encode_query_value(query));
         Url::parse(&raw).expect("search templates are static and valid")
     }
 }

@@ -163,28 +163,26 @@ mod tests {
             Err(IpcError::UnknownType)
         );
         assert_eq!(
-            decode_webview_message(&state_json("https://a.b/", "t").replace(
-                "\"title\":\"t\"",
-                "\"title\":\"t\",\"evil\":1"
-            )),
+            decode_webview_message(
+                &state_json("https://a.b/", "t")
+                    .replace("\"title\":\"t\"", "\"title\":\"t\",\"evil\":1")
+            ),
             Err(IpcError::UnknownType)
         );
-        assert_eq!(
-            decode_webview_message("[]"),
-            Err(IpcError::Malformed)
-        );
-        assert_eq!(
-            decode_webview_message("{oops"),
-            Err(IpcError::Malformed)
-        );
+        assert_eq!(decode_webview_message("[]"), Err(IpcError::Malformed));
+        assert_eq!(decode_webview_message("{oops"), Err(IpcError::Malformed));
     }
 
     #[test]
     fn unsafe_schemes_are_refused_on_open_requests() {
-        for bad in ["javascript:alert(1)", "data:text/html,<b>", "vbscript:x", "ftp://f"] {
-            let raw = format!(
-                "{{\"type\":\"open_in_new_tab\",\"url\":\"{bad}\",\"background\":false}}"
-            );
+        for bad in [
+            "javascript:alert(1)",
+            "data:text/html,<b>",
+            "vbscript:x",
+            "ftp://f",
+        ] {
+            let raw =
+                format!("{{\"type\":\"open_in_new_tab\",\"url\":\"{bad}\",\"background\":false}}");
             assert_eq!(
                 decode_webview_message(&raw),
                 Err(IpcError::NavigationNotAllowed),
@@ -210,10 +208,7 @@ mod tests {
             is_loading: false,
         };
         let raw = serde_json::to_string(&WebviewToHost::NavigationStateChanged { state }).unwrap();
-        assert_eq!(
-            decode_webview_message(&raw),
-            Err(IpcError::FieldOutOfRange)
-        );
+        assert_eq!(decode_webview_message(&raw), Err(IpcError::FieldOutOfRange));
     }
 
     #[test]

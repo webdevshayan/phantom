@@ -12,7 +12,10 @@ use crate::infra::paths;
 /// Runs the headless pass, returning a process exit code.
 pub fn run(profile: &Path) -> i32 {
     let Ok(db_path) = paths::ensure_profile_dirs(profile) else {
-        eprintln!("phantom: could not create the profile directory at {}", profile.display());
+        eprintln!(
+            "phantom: could not create the profile directory at {}",
+            profile.display()
+        );
         return 1;
     };
     let store = match Store::open(&db_path) {

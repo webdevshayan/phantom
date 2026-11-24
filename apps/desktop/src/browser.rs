@@ -97,19 +97,49 @@ impl WindowState {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
     /// Open a native window; `bounds == None` means platform default.
-    OpenWindow { window: WindowId, bounds: Option<WindowBounds>, maximized: bool },
-    CloseWindow { window: WindowId },
+    OpenWindow {
+        window: WindowId,
+        bounds: Option<WindowBounds>,
+        maximized: bool,
+    },
+    CloseWindow {
+        window: WindowId,
+    },
     /// Create the webview surface for `tab`, isolated to `space`, loading `url`.
-    AttachWebview { window: WindowId, tab: TabId, space: SpaceId, url: Url },
+    AttachWebview {
+        window: WindowId,
+        tab: TabId,
+        space: SpaceId,
+        url: Url,
+    },
     /// Destroy the webview surface of `tab`.
-    DetachWebview { tab: TabId },
-    LoadUrl { window: WindowId, tab: TabId, url: Url },
-    GoBack { tab: TabId },
-    GoForward { tab: TabId },
-    Reload { tab: TabId },
-    StopLoading { tab: TabId },
-    ToggleDevTools { tab: TabId },
-    SetWindowTitle { window: WindowId, title: String },
+    DetachWebview {
+        tab: TabId,
+    },
+    LoadUrl {
+        window: WindowId,
+        tab: TabId,
+        url: Url,
+    },
+    GoBack {
+        tab: TabId,
+    },
+    GoForward {
+        tab: TabId,
+    },
+    Reload {
+        tab: TabId,
+    },
+    StopLoading {
+        tab: TabId,
+    },
+    ToggleDevTools {
+        tab: TabId,
+    },
+    SetWindowTitle {
+        window: WindowId,
+        title: String,
+    },
     ShowSettingsWindow,
 }
 
@@ -355,9 +385,11 @@ impl PhantomSession {
             BrowserCommand::ActivateTab { tab } => self.activate_tab(tab),
             BrowserCommand::NewWindow { space } => self.new_window(space),
             BrowserCommand::DragOutTab { tab } => self.drag_out_tab(tab),
-            BrowserCommand::SplitPane { pane, direction, target } => {
-                self.split_pane(pane, direction, target)
-            }
+            BrowserCommand::SplitPane {
+                pane,
+                direction,
+                target,
+            } => self.split_pane(pane, direction, target),
             BrowserCommand::ClosePane { pane } => self.close_pane(pane),
             BrowserCommand::FocusPane { pane } => self.focus_pane(pane),
             BrowserCommand::ToggleDevTools { tab } => {
@@ -398,7 +430,11 @@ impl PhantomSession {
         }
     }
 
-    fn navigate(&mut self, tab_id: TabId, target: NavigationTarget) -> Result<Vec<Effect>, ModelError> {
+    fn navigate(
+        &mut self,
+        tab_id: TabId,
+        target: NavigationTarget,
+    ) -> Result<Vec<Effect>, ModelError> {
         let url = self.resolve_target(target)?;
         let window_id = self
             .window_of_tab(tab_id)
@@ -421,7 +457,11 @@ impl PhantomSession {
         Ok(effects)
     }
 
-    fn new_tab(&mut self, space: SpaceId, target: NavigationTarget) -> Result<Vec<Effect>, ModelError> {
+    fn new_tab(
+        &mut self,
+        space: SpaceId,
+        target: NavigationTarget,
+    ) -> Result<Vec<Effect>, ModelError> {
         let window_id = self.focused_window_id().ok_or(ModelError::NoWindow)?;
         let url = self.resolve_target(target)?;
         self.add_tab(window_id, space, url, false)
@@ -911,9 +951,14 @@ mod tests {
         };
         let effects = session.handle(good).unwrap();
         assert_eq!(effects.len(), 1);
-        let window = session.window(session.focused_window_id().unwrap()).unwrap();
+        let window = session
+            .window(session.focused_window_id().unwrap())
+            .unwrap();
         let tab_state = window.tab(tab).unwrap();
-        assert_eq!(tab_state.url.as_ref().unwrap().as_str(), "https://example.org/");
+        assert_eq!(
+            tab_state.url.as_ref().unwrap().as_str(),
+            "https://example.org/"
+        );
         assert_eq!(tab_state.status, crate::domain::tab::TabStatus::Loading);
     }
 
@@ -929,7 +974,9 @@ mod tests {
             },
         };
         session.handle(command).unwrap();
-        let window = session.window(session.focused_window_id().unwrap()).unwrap();
+        let window = session
+            .window(session.focused_window_id().unwrap())
+            .unwrap();
         let url = window.tab(tab).unwrap().url.clone().unwrap();
         assert_eq!(url.host_str(), Some("duckduckgo.com"));
     }
@@ -948,13 +995,17 @@ mod tests {
         let second = active_tab_id(&session).unwrap();
         assert_ne!(first, second);
 
-        let effects = session.handle(BrowserCommand::CloseTab { tab: second }).unwrap();
+        let effects = session
+            .handle(BrowserCommand::CloseTab { tab: second })
+            .unwrap();
         assert!(effects.contains(&Effect::DetachWebview { tab: second }));
         assert_eq!(active_tab_id(&session), Some(first));
 
         // closing the last tab closes the window
         let window_id = session.focused_window_id().unwrap();
-        let effects = session.handle(BrowserCommand::CloseTab { tab: first }).unwrap();
+        let effects = session
+            .handle(BrowserCommand::CloseTab { tab: first })
+            .unwrap();
         assert!(effects.contains(&Effect::CloseWindow { window: window_id }));
         assert!(session.windows().is_empty());
     }
@@ -983,7 +1034,9 @@ mod tests {
 
         // activate the first tab while the focused pane shows the second:
         // the panes swap, both tabs stay visible exactly once
-        session.handle(BrowserCommand::ActivateTab { tab: first }).unwrap();
+        session
+            .handle(BrowserCommand::ActivateTab { tab: first })
+            .unwrap();
         let pairs = session.window(window_id).unwrap().layout.pane_tab_pairs();
         assert_eq!(
             pairs.iter().filter(|(_, tab)| *tab == first).count(),
@@ -1049,7 +1102,11 @@ mod tests {
             .unwrap();
         let effects = session.handle(BrowserCommand::DragOutTab { tab }).unwrap();
         assert!(effects.contains(&Effect::DetachWebview { tab }));
-        assert!(effects.contains(&Effect::OpenWindow { window: 2, bounds: None, maximized: false }));
+        assert!(effects.contains(&Effect::OpenWindow {
+            window: 2,
+            bounds: None,
+            maximized: false
+        }));
         assert_eq!(session.windows().len(), 2);
     }
 
@@ -1060,7 +1117,11 @@ mod tests {
         let pane = session.window(window_id).unwrap().focused_pane;
         let tab_count = session.window(window_id).unwrap().tabs.len();
         let effects = session.handle(BrowserCommand::ClosePane { pane }).unwrap();
-        assert_eq!(effects.len(), tab_count + 1, "detach per tab + close window");
+        assert_eq!(
+            effects.len(),
+            tab_count + 1,
+            "detach per tab + close window"
+        );
         assert!(session.windows().is_empty());
     }
 
@@ -1069,14 +1130,12 @@ mod tests {
         let mut session = started();
         let origin = active_tab_id(&session).unwrap();
         let effects = session
-            .report_open_request(
-                origin,
-                "https://example.net/".to_string(),
-                true,
-            )
+            .report_open_request(origin, "https://example.net/".to_string(), true)
             .unwrap();
         assert!(effects.is_empty());
-        let window = session.window(session.focused_window_id().unwrap()).unwrap();
+        let window = session
+            .window(session.focused_window_id().unwrap())
+            .unwrap();
         assert_eq!(window.tabs.len(), 2);
         let background_tab = window.tabs.last().unwrap();
         assert!(!background_tab.surfaced);
@@ -1110,7 +1169,9 @@ mod tests {
                 title: "Example Page".into()
             }]
         );
-        let window = session.window(session.focused_window_id().unwrap()).unwrap();
+        let window = session
+            .window(session.focused_window_id().unwrap())
+            .unwrap();
         let tab_state = window.tab(tab).unwrap();
         assert!(tab_state.can_go_back);
         assert_eq!(tab_state.status, crate::domain::tab::TabStatus::Loaded);

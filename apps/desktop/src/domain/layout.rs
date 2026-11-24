@@ -24,7 +24,10 @@ pub enum SplitDirection {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum LayoutTree {
-    Pane { pane: PaneId, tab: TabId },
+    Pane {
+        pane: PaneId,
+        tab: TabId,
+    },
     Split {
         direction: SplitDirection,
         ratio: f32,
@@ -94,7 +97,10 @@ impl LayoutTree {
 
     /// Every tab currently visible in a pane.
     pub fn tab_ids(&self) -> Vec<TabId> {
-        self.pane_tab_pairs().into_iter().map(|(_, tab)| tab).collect()
+        self.pane_tab_pairs()
+            .into_iter()
+            .map(|(_, tab)| tab)
+            .collect()
     }
 
     pub fn contains_pane(&self, target: PaneId) -> bool {
@@ -268,7 +274,13 @@ impl LayoutTree {
                     SplitDirection::Vertical => {
                         let first_height = height * ratio;
                         first.collect_rects(x, y, width, first_height, out);
-                        second.collect_rects(x, y + first_height, width, height - first_height, out);
+                        second.collect_rects(
+                            x,
+                            y + first_height,
+                            width,
+                            height - first_height,
+                            out,
+                        );
                     }
                 }
             }
@@ -286,7 +298,9 @@ mod tests {
 
     #[test]
     fn split_inserts_pane_and_keeps_counts() {
-        let tree = tree().split(PaneId(1), SplitDirection::Horizontal, PaneId(2), TabId(20)).unwrap();
+        let tree = tree()
+            .split(PaneId(1), SplitDirection::Horizontal, PaneId(2), TabId(20))
+            .unwrap();
         assert_eq!(tree.pane_count(), 2);
         assert_eq!(tree.panes(), vec![PaneId(1), PaneId(2)]);
         assert_eq!(tree.tab_for_pane(PaneId(1)), Some(TabId(10)));
@@ -348,17 +362,17 @@ mod tests {
         assert!((total_width - 400.0).abs() < 0.001);
         for (_, r) in &rects {
             assert!((r.height - 300.0).abs() < 0.001);
-            assert!(r.width >= 400.0 * MIN_RATIO * 0.5 - 0.001, "pane too narrow: {r:?}");
+            assert!(
+                r.width >= 400.0 * MIN_RATIO * 0.5 - 0.001,
+                "pane too narrow: {r:?}"
+            );
         }
         // no two panes overlap
         for (i, (_, a)) in rects.iter().enumerate() {
             for (_, b) in rects.iter().skip(i + 1) {
                 let overlap_x = (a.x - b.x).abs() < a.width.min(b.width);
                 let overlap_y = (a.y - b.y).abs() < a.height.min(b.height);
-                assert!(
-                    !(overlap_x && overlap_y),
-                    "panes overlap: {a:?} vs {b:?}"
-                );
+                assert!(!(overlap_x && overlap_y), "panes overlap: {a:?} vs {b:?}");
             }
         }
     }

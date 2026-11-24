@@ -33,8 +33,15 @@ use crate::webview::internal_pages;
 /// messages that passed `infra::ipc::decode_webview_message` end up here.
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostEvent {
-    NavigationStateChanged { tab: TabId, state: ipc::NavigationState },
-    OpenInNewTab { tab: TabId, url: String, background: bool },
+    NavigationStateChanged {
+        tab: TabId,
+        state: ipc::NavigationState,
+    },
+    OpenInNewTab {
+        tab: TabId,
+        url: String,
+        background: bool,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -112,10 +119,17 @@ impl WebviewHost {
                 if let Ok(message) = ipc::decode_webview_message(raw) {
                     let event = match message {
                         WebviewToHost::NavigationStateChanged { state } => {
-                            HostEvent::NavigationStateChanged { tab: event_tab, state }
+                            HostEvent::NavigationStateChanged {
+                                tab: event_tab,
+                                state,
+                            }
                         }
                         WebviewToHost::OpenInNewTab { url, background } => {
-                            HostEvent::OpenInNewTab { tab: event_tab, url, background }
+                            HostEvent::OpenInNewTab {
+                                tab: event_tab,
+                                url,
+                                background,
+                            }
                         }
                     };
                     // a closed receiver must never crash the webview thread
@@ -244,7 +258,10 @@ fn serve_internal_page(
     let (status, html) = match path.as_str() {
         "newtab" => (200, internal_pages::new_tab_page(engine, theme)),
         "blank" => (200, internal_pages::blank_page()),
-        _ => (404, internal_pages::error_page("This internal page does not exist")),
+        _ => (
+            404,
+            internal_pages::error_page("This internal page does not exist"),
+        ),
     };
     wry::http::Response::builder()
         .status(status)

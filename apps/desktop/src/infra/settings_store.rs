@@ -64,9 +64,17 @@ mod tests {
         settings.schema_version = 99;
         save(&mut store, &settings).unwrap();
         let raw = store.meta(SETTINGS_KEY).unwrap().unwrap();
-        assert!(raw.contains(&format!("\"schema_version\":{SETTINGS_SCHEMA_VERSION}")), "{raw}");
+        assert!(
+            raw.contains(&format!("\"schema_version\":{SETTINGS_SCHEMA_VERSION}")),
+            "{raw}"
+        );
         // flags stay untouched by the stamping
-        store.set_meta(SETTINGS_KEY, "{\"schema_version\":1,\"flags\":{\"enable_drag_tabs\":true}}").unwrap();
+        store
+            .set_meta(
+                SETTINGS_KEY,
+                "{\"schema_version\":1,\"flags\":{\"enable_drag_tabs\":true}}",
+            )
+            .unwrap();
         let loaded = load_or_default(&store).unwrap();
         assert!(loaded.flags.enable_drag_tabs);
         assert_eq!(loaded.flags.get(FeatureFlag::EnableTiling), false);

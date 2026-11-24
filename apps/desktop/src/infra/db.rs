@@ -234,7 +234,8 @@ impl Store {
     }
 
     pub fn clear_session(&mut self) -> Result<(), DbError> {
-        self.conn.execute_batch("DELETE FROM tabs; DELETE FROM windows;")?;
+        self.conn
+            .execute_batch("DELETE FROM tabs; DELETE FROM windows;")?;
         Ok(())
     }
 
@@ -275,10 +276,11 @@ impl Store {
 
     pub fn load_settings(&self) -> Result<Option<Settings>, DbError> {
         match self.meta("settings")? {
-            Some(json) => Ok(Some(
-                Settings::from_stored(&json)
-                    .map_err(|_| DbError::Corrupt("settings json does not parse"))?,
-            )),
+            Some(json) => {
+                Ok(Some(Settings::from_stored(&json).map_err(|_| {
+                    DbError::Corrupt("settings json does not parse")
+                })?))
+            }
             None => Ok(None),
         }
     }
@@ -343,7 +345,9 @@ mod tests {
     fn clear_session_empties_state() {
         let mut store = Store::open_in_memory().unwrap();
         store
-            .save_session(&SessionSnapshot { windows: vec![sample_window(1)] })
+            .save_session(&SessionSnapshot {
+                windows: vec![sample_window(1)],
+            })
             .unwrap();
         store.clear_session().unwrap();
         assert_eq!(store.load_session().unwrap().windows.len(), 0);
@@ -395,7 +399,9 @@ mod tests {
         {
             let mut store = Store::open(&path).unwrap();
             store
-                .save_session(&SessionSnapshot { windows: vec![sample_window(5)] })
+                .save_session(&SessionSnapshot {
+                    windows: vec![sample_window(5)],
+                })
                 .unwrap();
         }
         let store = Store::open(&path).unwrap();

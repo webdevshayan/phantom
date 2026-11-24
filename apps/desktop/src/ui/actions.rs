@@ -1,7 +1,7 @@
 //! Chrome actions and their key bindings. Bindings mirror a mainstream
 //! browser so muscle memory carries over.
 
-use gpui::{KeyBinding, actions};
+use gpui::{actions, KeyBinding};
 
 actions!(
     phantom,

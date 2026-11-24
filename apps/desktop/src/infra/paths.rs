@@ -84,7 +84,11 @@ mod tests {
 
     #[test]
     fn xdg_data_home_is_honored() {
-        let dir = default_profile_dir_from(None, Some(OsStr::new("/tmp/xdg")), Some(OsStr::new("/home/z")));
+        let dir = default_profile_dir_from(
+            None,
+            Some(OsStr::new("/tmp/xdg")),
+            Some(OsStr::new("/home/z")),
+        );
         assert_eq!(dir, PathBuf::from("/tmp/xdg/phantom"));
     }
 
