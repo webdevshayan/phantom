@@ -24,7 +24,7 @@ use crate::webview::internal_pages;
 
 pub type WindowId = u64;
 
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ModelError {
     #[error("tab {0:?} is not part of this session")]
     UnknownTab(TabId),
@@ -624,6 +624,9 @@ impl PhantomSession {
             .map(|window| window.id)
             .ok_or(ModelError::UnknownPane(pane))?;
         let url = self.resolve_target(target)?;
+        // allocate before taking the window borrow
+        let tab_id = TabId(self.alloc_tab_id());
+        let new_pane = PaneId(self.alloc_pane_id());
         let window = self
             .window_mut(window_id)
             .ok_or(ModelError::UnknownWindow(window_id))?;
@@ -633,11 +636,9 @@ impl PhantomSession {
             .and_then(|tab| window.tab(tab))
             .map(|tab| tab.space.clone())
             .unwrap_or_else(SpaceId::default_space);
-        let tab_id = TabId(self.alloc_tab_id());
         let mut tab = Tab::new(tab_id, space.clone());
         tab.begin_navigation(url.clone());
         window.tabs.push(tab);
-        let new_pane = PaneId(self.alloc_pane_id());
         window.layout = window
             .layout
             .clone()
@@ -1004,10 +1005,10 @@ mod tests {
             direction: SplitDirection::Vertical,
             target: NavigationTarget::NewTabPage,
         };
-        assert_eq!(
+        assert!(matches!(
             session.handle(command.clone()),
             Err(ModelError::FeatureDisabled("enable_tiling"))
-        );
+        ));
         session
             .handle(BrowserCommand::ToggleFlag {
                 flag: FeatureFlag::EnableTiling,
@@ -1027,10 +1028,10 @@ mod tests {
     fn drag_out_requires_the_flag_and_spawns_a_window() {
         let mut session = started();
         let tab = active_tab_id(&session).unwrap();
-        assert_eq!(
+        assert!(matches!(
             session.handle(BrowserCommand::DragOutTab { tab }),
             Err(ModelError::FeatureDisabled("enable_drag_tabs"))
-        );
+        ));
         session
             .handle(BrowserCommand::ToggleFlag {
                 flag: FeatureFlag::EnableDragTabs,

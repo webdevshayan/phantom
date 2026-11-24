@@ -200,7 +200,7 @@ impl LayoutTree {
     /// Replaces the tab shown in `target`.
     pub fn set_tab(&mut self, target: PaneId, tab: TabId) -> Result<(), LayoutError> {
         match self {
-            LayoutTree::Pane { pane, tab: slot } if pane == target => {
+            LayoutTree::Pane { pane, tab: slot } if *pane == target => {
                 *slot = tab;
                 Ok(())
             }
