@@ -297,6 +297,7 @@ mod tests {
     use crate::domain::layout::{LayoutTree, PaneId};
 
     fn sample_window(id: u64) -> WindowSnapshot {
+        let tab_id = TabId(id * 10);
         WindowSnapshot {
             id,
             bounds: WindowBounds {
@@ -306,10 +307,10 @@ mod tests {
                 height: Some(800.0),
             },
             maximized: false,
-            active_tab: Some(TabId(2)),
-            layout: LayoutTree::pane(PaneId(1), TabId(2)),
+            active_tab: Some(tab_id),
+            layout: LayoutTree::pane(PaneId(id), tab_id),
             tabs: vec![TabSnapshot {
-                id: TabId(2),
+                id: tab_id,
                 space: SpaceId::default_space(),
                 title: "Example".into(),
                 url: Some("https://example.com/".into()),
@@ -369,11 +370,11 @@ mod tests {
         window.layout = LayoutTree::pane(PaneId(1), TabId(404));
         assert!(window.validate().is_err());
 
-        window.layout = LayoutTree::pane(PaneId(1), TabId(2));
+        window.layout = LayoutTree::pane(PaneId(1), TabId(10));
         window.active_tab = Some(TabId(404));
         assert!(window.validate().is_err());
 
-        window.active_tab = Some(TabId(2));
+        window.active_tab = Some(TabId(10));
         assert!(window.validate().is_ok());
     }
 
