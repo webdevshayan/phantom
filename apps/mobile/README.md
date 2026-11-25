@@ -1,8 +1,8 @@
 # Phantom (mobile)
 
 Chrome-like mobile browser shell built with Flutter. Lives under
-`apps/mobile/` in the Phantom monorepo, with its own pipeline at
-`.github/workflows/build_mobile.yml`.
+`apps/mobile/` in the Phantom monorepo. Built and tested locally with the
+Flutter SDK pinned in `.metadata` (3.24.5 stable), no CI.
 
 ## Architecture
 
