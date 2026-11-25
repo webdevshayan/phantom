@@ -21,6 +21,7 @@ use dpi::{LogicalPosition, LogicalSize, Position, Size};
 use raw_window_handle::HasWindowHandle;
 use wry::WebContext;
 
+use crate::domain::command::ALLOWED_SCHEMES;
 use crate::domain::layout::RectPx;
 use crate::domain::search::SearchEngine;
 use crate::domain::settings::Theme;
@@ -111,9 +112,17 @@ impl WebviewHost {
             .with_transparent(false)
             .with_devtools(true)
             .with_navigation_handler(|url| {
-                // defense in depth: never hand a top-level `data:` navigation
-                // to the engine; internal pages come from the custom protocol
-                !url.starts_with("data:")
+                // defense in depth: every top-level navigation must use a
+                // scheme on the chrome allowlist, checked on the lowercased
+                // scheme. `javascript:`, `blob:`, `vbscript:` and `data:`
+                // are refused here instead of leaning on engine courtesy.
+                // `about` passes: it is engine plumbing, not a destination.
+                url::Url::parse(&url)
+                    .map(|parsed| {
+                        let scheme = parsed.scheme().to_ascii_lowercase();
+                        scheme == "about" || ALLOWED_SCHEMES.contains(&scheme.as_str())
+                    })
+                    .unwrap_or(false)
             })
             .with_ipc_handler(move |request: wry::http::Request<String>| {
                 let raw = request.body().as_str();

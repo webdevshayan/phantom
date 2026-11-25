@@ -4,6 +4,12 @@
 
 pub const STATE_BRIDGE_JS: &str = r#"(function () {
   'use strict';
+  // initialization scripts run in subframes as well; only the top document
+  // may report, so a cross-origin iframe cannot rewrite the omnibox or
+  // tab title with its own location
+  if (window.top !== window) {
+    return;
+  }
   function report() {
     try {
       var nav = {
@@ -47,6 +53,8 @@ pub const STATE_BRIDGE_JS: &str = r#"(function () {
     openRequested(url, false);
     return null;
   };
+  // no polling loop: the event hooks above already cover url, title and
+  // loading changes, and an idle page must never wake the host up
   // slow-loading pages update late; a light poll keeps the strip honest
   setInterval(report, 1000);
 })();"#;
@@ -54,6 +62,13 @@ pub const STATE_BRIDGE_JS: &str = r#"(function () {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bridge_reports_only_from_the_top_frame() {
+        // initialization scripts run in subframes on WebView2; without the
+        // gate a cross-origin iframe could post navigation_state_changed
+        assert!(STATE_BRIDGE_JS.contains("window.top !== window"));
+    }
 
     #[test]
     fn bridge_posts_only_contracted_message_types() {
