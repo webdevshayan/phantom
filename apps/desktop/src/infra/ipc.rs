@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::command::validate_navigation;
+use crate::domain::command::{validate_navigation, validate_page_initiated};
 use crate::domain::settings::Theme;
 
 /// Hard cap on any single IPC message, applied before parsing.
@@ -71,16 +71,28 @@ pub fn decode_webview_message(raw: &str) -> Result<WebviewToHost, IpcError> {
 fn validate(message: &WebviewToHost) -> Result<(), IpcError> {
     match message {
         WebviewToHost::NavigationStateChanged { state } => {
-            validate_url_text(&state.url, true)?;
+            // a committed-location report from the top frame; the full
+            // allowlist applies so a typed `file://` page can still report
+            // its real location back to the omnibox
+            validate_url_text(&state.url, true, validate_navigation)?;
             validate_title(&state.title)
         }
-        WebviewToHost::OpenInNewTab { url, .. } => validate_url_text(url, false),
+        WebviewToHost::OpenInNewTab { url, .. } => {
+            // the page asked for an open: `file` and every other
+            // chrome-reserved scheme is refused before it reaches the model
+            validate_url_text(url, false, validate_page_initiated)
+        }
     }
 }
 
-/// Url fields must parse and use an allowed scheme. `NavigationState.url`
-/// may be empty (fresh webview); an open request must carry a real target.
-fn validate_url_text(raw: &str, allow_empty: bool) -> Result<(), IpcError> {
+/// Url fields must parse and pass the supplied scheme check.
+/// `NavigationState.url` may be empty (fresh webview); an open request must
+/// carry a real target.
+fn validate_url_text(
+    raw: &str,
+    allow_empty: bool,
+    check: fn(&url::Url) -> Result<(), crate::domain::command::NavigationError>,
+) -> Result<(), IpcError> {
     if raw.len() > MAX_URL_BYTES {
         return Err(IpcError::FieldOutOfRange);
     }
@@ -92,7 +104,7 @@ fn validate_url_text(raw: &str, allow_empty: bool) -> Result<(), IpcError> {
         };
     }
     let url = url::Url::parse(raw).map_err(|_| IpcError::NavigationNotAllowed)?;
-    validate_navigation(&url).map_err(|_| IpcError::NavigationNotAllowed)
+    check(&url).map_err(|_| IpcError::NavigationNotAllowed)
 }
 
 fn validate_title(title: &str) -> Result<(), IpcError> {
@@ -180,6 +192,10 @@ mod tests {
             "data:text/html,<b>",
             "vbscript:x",
             "ftp://f",
+            // file targets stay reserved for typed omnibox input: a page
+            // must not be able to hand the shell a local path
+            "file:///tmp/payload",
+            "file://localhost/C:/Users",
         ] {
             let raw =
                 format!("{{\"type\":\"open_in_new_tab\",\"url\":\"{bad}\",\"background\":false}}");
@@ -189,6 +205,18 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    #[test]
+    fn state_reports_accept_typed_file_pages_but_opens_do_not() {
+        // the top frame of a page the user actually opened by typing may
+        // report its location; the same url through an open request is refused
+        let state = state_json("file:///home/user/page.html", "Local");
+        assert!(decode_webview_message(&state).is_ok());
+        let open = decode_webview_message(
+            "{\"type\":\"open_in_new_tab\",\"url\":\"file:///home/user/page.html\",\"background\":false}",
+        );
+        assert_eq!(open, Err(IpcError::NavigationNotAllowed));
     }
 
     #[test]

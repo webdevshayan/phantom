@@ -6,10 +6,16 @@ use crate::domain::settings::{FeatureFlag, Theme};
 use crate::domain::space::SpaceId;
 use crate::domain::tab::TabId;
 
-/// Schemes a top-level navigation may use. `phantom` serves the built-in
-/// internal pages; everything else — most notably `javascript`, `data`,
-/// `blob`, `vbscript` — is refused before it ever reaches a webview.
+/// Schemes a top-level navigation may use when it originates from the
+/// chrome: the omnibox, an internal page, or a restored session. Everything
+/// else — most notably `javascript`, `data`, `blob`, `vbscript` — is refused
+/// before it ever reaches a webview.
 pub const ALLOWED_SCHEMES: &[&str] = &["http", "https", "file", "phantom"];
+
+/// Schemes web content may hand the shell over IPC. Strictly narrower than
+/// `ALLOWED_SCHEMES`: `file` stays reserved for typed omnibox input, so a
+/// page can never open a local target through a window.open request.
+pub const PAGE_INITIATED_SCHEMES: &[&str] = &["http", "https", "phantom"];
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum NavigationError {
@@ -21,6 +27,18 @@ pub enum NavigationError {
 
 pub fn validate_navigation(url: &Url) -> Result<(), NavigationError> {
     if ALLOWED_SCHEMES.contains(&url.scheme()) {
+        Ok(())
+    } else {
+        Err(NavigationError::SchemeNotAllowed)
+    }
+}
+
+/// Validates a navigation the page itself asked for (the IPC
+/// `open_in_new_tab` path and any future page-driven flow). The full
+/// allowlist deliberately does not apply here: only the user types
+/// `file://` targets, pages never do.
+pub fn validate_page_initiated(url: &Url) -> Result<(), NavigationError> {
+    if PAGE_INITIATED_SCHEMES.contains(&url.scheme()) {
         Ok(())
     } else {
         Err(NavigationError::SchemeNotAllowed)
@@ -136,6 +154,29 @@ mod tests {
                 validate_navigation(&url),
                 Err(NavigationError::SchemeNotAllowed),
                 "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn page_initiated_opens_never_reach_file() {
+        for allowed in ["http://a.b", "https://example.com/page", "phantom://newtab"] {
+            let url = Url::parse(allowed).unwrap();
+            assert_eq!(validate_page_initiated(&url), Ok(()), "{allowed}");
+        }
+        for refused in [
+            "file:///tmp/report",
+            "file://localhost/C:/Users",
+            "javascript:alert(1)",
+            "data:text/html,<b>",
+            "blob:https://x/y",
+            "vbscript:x",
+        ] {
+            let url = Url::parse(refused).unwrap();
+            assert_eq!(
+                validate_page_initiated(&url),
+                Err(NavigationError::SchemeNotAllowed),
+                "{refused}"
             );
         }
     }

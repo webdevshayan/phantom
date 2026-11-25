@@ -147,6 +147,11 @@ fn ipc_reports_flow_into_session_state() {
     let hostile =
         "{\"type\":\"open_in_new_tab\",\"url\":\"javascript:alert(1)\",\"background\":false}";
     assert!(decode_webview_message(hostile).is_err());
+    // so is a page asking the shell to open a local target: file stays
+    // reserved for typed omnibox input
+    let local_open =
+        "{\"type\":\"open_in_new_tab\",\"url\":\"file:///tmp/session\", \"background\":false}";
+    assert!(decode_webview_message(local_open).is_err());
 
     // a legit open request opens a tab in the same space
     let open =
