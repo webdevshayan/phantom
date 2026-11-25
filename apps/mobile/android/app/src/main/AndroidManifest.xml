@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- A browser cannot reach the network without this permission. Phantom
+         only loads the pages the user asks for; it makes no requests on its own. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Phantom"
         android:name="${applicationName}"
