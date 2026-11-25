@@ -38,44 +38,61 @@ pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// Applies pending webview reports to the session.
-pub(crate) fn drain_host_events(cx: &App) {
+/// Applies pending webview reports to the session and returns how many
+/// were applied. Events are drained into a batch first: `try_iter()` can
+/// only be walked once, and counting it would consume and discard every
+/// queued report before anything is forwarded.
+pub(crate) fn drain_host_events(cx: &App) -> usize {
     let shell = cx.global::<BrowserShell>();
-    loop {
-        let event = match lock(&shell.events_rx).try_recv() {
-            Ok(event) => event,
-            Err(_) => break,
-        };
-        let mut session = lock(&shell.session);
-        match event {
+    let pending: Vec<HostEvent> = lock(&shell.events_rx).try_iter().collect();
+    if pending.is_empty() {
+        return 0;
+    }
+    let mut session = lock(&shell.session);
+    apply_host_events(&mut session, pending)
+}
+
+/// Applies one drained batch of pre-validated events to the session.
+/// Rejected events (unknown tab, refused url) do not count as applied.
+fn apply_host_events(session: &mut PhantomSession, events: Vec<HostEvent>) -> usize {
+    let mut applied = 0;
+    for event in events {
+        let ok = match event {
             HostEvent::NavigationStateChanged { tab, state } => {
-                let _ = session.report_navigation(tab, state);
+                session.report_navigation(tab, state).is_ok()
             }
             HostEvent::OpenInNewTab {
                 tab,
                 url,
                 background,
-            } => {
-                let _ = session.report_open_request(tab, url, background);
-            }
+            } => session.report_open_request(tab, url, background).is_ok(),
+        };
+        if ok {
+            applied += 1;
         }
     }
+    applied
 }
 
-/// Applies commands queued by the settings window.
-pub(crate) fn drain_settings_queue(cx: &App) {
+/// Applies commands queued by the settings window and returns how many
+/// were applied.
+pub(crate) fn drain_settings_queue(cx: &App) -> usize {
     let shell = cx.global::<BrowserShell>();
     let pending = {
         let mut queue = lock(&shell.settings_queue);
         std::mem::take(&mut *queue)
     };
     if pending.is_empty() {
-        return;
+        return 0;
     }
     let mut session = lock(&shell.session);
+    let mut applied = 0;
     for command in pending {
-        let _ = session.handle(command);
+        if session.handle(command).is_ok() {
+            applied += 1;
+        }
     }
+    applied
 }
 
 /// Opens one browser window for a session window id.
@@ -199,15 +216,10 @@ pub fn launch(profile: PathBuf) {
             cx.background_executor()
                 .timer(std::time::Duration::from_millis(150))
                 .await;
-            let mut worked = false;
-            let _ = cx.update(|cx| {
-                let before = pending_counts(cx);
-                drain_host_events(cx);
-                drain_settings_queue(cx);
-                let after = pending_counts(cx);
-                worked = before != after;
-            });
-            if worked {
+            let applied = cx
+                .update(|cx| drain_host_events(cx) + drain_settings_queue(cx))
+                .unwrap_or(0);
+            if applied > 0 {
                 let _ = cx.update(|cx| cx.refresh_windows());
             }
         })
@@ -215,9 +227,64 @@ pub fn launch(profile: PathBuf) {
     });
 }
 
-fn pending_counts(cx: &App) -> (usize, usize) {
-    let shell = cx.global::<BrowserShell>();
-    let events = lock(&shell.events_rx).try_iter().count();
-    let queued = lock(&shell.settings_queue).len();
-    (events, queued)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::domain::settings::Settings;
+    use crate::infra::db::Store;
+    use crate::infra::ipc::NavigationState;
+
+    fn session() -> PhantomSession {
+        PhantomSession::new(Store::open_in_memory().unwrap(), Settings::default())
+    }
+
+    #[test]
+    fn every_drained_report_is_applied_exactly_once() {
+        let mut session = session();
+        session.ensure_startup_window().unwrap();
+        let tab = session.windows()[0].active_tab_id().unwrap();
+        let events = vec![
+            HostEvent::NavigationStateChanged {
+                tab,
+                state: NavigationState {
+                    url: "https://example.net/doc".into(),
+                    title: "Doc".into(),
+                    can_go_back: false,
+                    can_go_forward: false,
+                    is_loading: false,
+                },
+            },
+            HostEvent::OpenInNewTab {
+                tab,
+                url: "https://example.net/other".into(),
+                background: true,
+            },
+        ];
+        let applied = apply_host_events(&mut session, events.clone());
+        assert_eq!(applied, events.len(), "nothing may be consumed and dropped");
+        let window = &session.windows()[0];
+        assert_eq!(
+            window.tabs[0].url.as_ref().unwrap().as_str(),
+            "https://example.net/doc"
+        );
+        assert_eq!(window.tabs.len(), 2, "open request became a tab");
+    }
+
+    #[test]
+    fn rejected_reports_do_not_count_as_applied() {
+        let mut session = session();
+        session.ensure_startup_window().unwrap();
+        let unknown_tab = crate::domain::tab::TabId(9_999);
+        let applied = apply_host_events(
+            &mut session,
+            vec![HostEvent::OpenInNewTab {
+                tab: unknown_tab,
+                url: "https://example.net/".into(),
+                background: false,
+            }],
+        );
+        assert_eq!(applied, 0);
+        assert_eq!(session.windows().len(), 1);
+    }
 }
