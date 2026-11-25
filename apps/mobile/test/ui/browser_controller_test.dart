@@ -50,6 +50,63 @@ void main() {
       expect(controller.activeTab.url, 'https://b.example');
     });
 
+    test('back and forward walk webview history when aligned', () async {
+      final controller = buildController();
+      final host = FakeWebViewHost()
+        ..canWalkBack = true
+        ..canWalkForward = true;
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://a.example');
+      await controller.navigate('https://b.example');
+
+      await controller.back();
+      expect(controller.activeTab.url, 'https://a.example');
+      expect(host.backSteps, 1);
+      expect(host.loadedUrls.last, 'goBack');
+
+      await controller.forward();
+      expect(controller.activeTab.url, 'https://b.example');
+      expect(host.forwardSteps, 1);
+      expect(host.loadedUrls.last, 'goForward');
+    });
+
+    test('back falls back to a plain load when the web view cannot walk',
+        () async {
+      final controller = buildController();
+      final host = FakeWebViewHost();
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://a.example');
+      await controller.navigate('https://b.example');
+
+      await controller.back();
+      expect(controller.activeTab.url, 'https://a.example');
+      expect(host.backSteps, 0);
+      expect(host.loadedUrls.last, 'https://a.example');
+    });
+
+    test('history alignment resets on a tab switch', () async {
+      final controller = buildController();
+      final host = FakeWebViewHost()..canWalkBack = true;
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://a.example');
+      await controller.navigate('https://b.example');
+      final secondId = controller.activeTab.id;
+      await controller.addTab();
+      final thirdId = controller.activeTab.id;
+      expect(thirdId, isNotNull);
+
+      // Switching back to the second tab starts a new alignment window:
+      // the engine's back entry no longer belongs to this tab's history.
+      await controller.selectTab(secondId);
+      await controller.back();
+      expect(controller.activeTab.url, 'https://a.example');
+      expect(host.backSteps, 0);
+      expect(host.loadedUrls.last, 'https://a.example');
+    });
+
     test('addTab, selectTab and closeTab manage the stack', () async {
       final controller = buildController();
       await controller.restoreSession();

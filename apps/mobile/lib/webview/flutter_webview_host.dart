@@ -39,6 +39,33 @@ class PanelWebViewHost implements WebViewHost {
   }
 
   @override
+  Future<bool> canGoBack() async {
+    try {
+      return await _controller.canGoBack();
+    } on Exception {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> goBack() async {
+    try {
+      await _controller.goBack();
+    } on Exception {
+      // History walk failures surface through web resource error events.
+    }
+  }
+
+  @override
+  Future<void> goForward() async {
+    try {
+      await _controller.goForward();
+    } on Exception {
+      // History walk failures surface through web resource error events.
+    }
+  }
+
+  @override
   Future<Map<String, String>> captureFormFields() async {
     final raw = await _runScript(FormCaptureBridge.build());
     if (raw.isEmpty) {

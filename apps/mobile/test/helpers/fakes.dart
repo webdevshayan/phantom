@@ -84,6 +84,13 @@ class FakeWebViewHost implements WebViewHost {
   Map<String, String> formFields = <String, String>{};
   bool disposed = false;
 
+  /// Native history capability of the fake web view. Defaults to false so
+  /// tests exercise the plain re-load path unless a test opts in.
+  bool canWalkBack = false;
+  bool canWalkForward = false;
+  int backSteps = 0;
+  int forwardSteps = 0;
+
   @override
   Stream<WebViewEvent> get events => _events.stream;
 
@@ -99,6 +106,21 @@ class FakeWebViewHost implements WebViewHost {
   @override
   Future<void> reload() async {
     loadedUrls.add('reload');
+  }
+
+  @override
+  Future<bool> canGoBack() async => canWalkBack;
+
+  @override
+  Future<void> goBack() async {
+    backSteps++;
+    loadedUrls.add('goBack');
+  }
+
+  @override
+  Future<void> goForward() async {
+    forwardSteps++;
+    loadedUrls.add('goForward');
   }
 
   @override

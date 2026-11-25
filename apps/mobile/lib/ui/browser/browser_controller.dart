@@ -42,6 +42,15 @@ class BrowserController extends ChangeNotifier {
   bool _suppressUrlEvents = false;
   int _idSequence = 0;
 
+  /// How many model history positions behind the active page the engine's
+  /// own back stack also holds. A positive count means [back] can replay
+  /// the engine's entry instead of re-requesting the URL, which keeps POST
+  /// results, scroll positions and page state alive.
+  int _nativeBackDepth = 0;
+
+  /// Same as [_nativeBackDepth], measured forward.
+  int _nativeForwardDepth = 0;
+
   TabStack? get stack => _stack;
   Preferences get preferences => _preferences;
   SearchEngine get searchEngine => SearchEngine.byId(_preferences.searchEngine);
@@ -77,6 +86,7 @@ class BrowserController extends ChangeNotifier {
     if (url != TabEntry.blankUrl) {
       await _loadOn(_primaryHost, url);
     }
+    _resetHistoryAlignment();
   }
 
   Future<void> navigate(String rawInput) async {
@@ -84,7 +94,12 @@ class BrowserController extends ChangeNotifier {
     await _captureFormDrafts();
     _replaceTab(activeTab.navigateTo(target.url));
     notifyListeners();
-    await _loadOn(_primaryHost, target.url);
+    final host = _primaryHost;
+    if (host != null) {
+      await _loadOn(host, target.url);
+      _nativeBackDepth += 1;
+      _nativeForwardDepth = 0;
+    }
     await _persistStack();
   }
 
@@ -95,10 +110,8 @@ class BrowserController extends ChangeNotifier {
     }
     final previous = current.goBack();
     _replaceTab(previous);
-    _suppressUrlEvents = true;
     notifyListeners();
-    await _loadOn(_primaryHost, previous.url);
-    _suppressUrlEvents = false;
+    await _stepHistoryOrReload(previous.url, forward: false);
     await _persistStack();
   }
 
@@ -109,10 +122,8 @@ class BrowserController extends ChangeNotifier {
     }
     final next = current.goForward();
     _replaceTab(next);
-    _suppressUrlEvents = true;
     notifyListeners();
-    await _loadOn(_primaryHost, next.url);
-    _suppressUrlEvents = false;
+    await _stepHistoryOrReload(next.url, forward: true);
     await _persistStack();
   }
 
@@ -137,6 +148,7 @@ class BrowserController extends ChangeNotifier {
     );
     notifyListeners();
     await _loadOn(_primaryHost, entry.url);
+    _resetHistoryAlignment();
     await _persistStack();
   }
 
@@ -148,6 +160,7 @@ class BrowserController extends ChangeNotifier {
     _stack = stack.withTabs(stack.tabs, nextActiveId: tabId);
     notifyListeners();
     await _loadOn(_primaryHost, activeTab.url);
+    _resetHistoryAlignment();
     await _persistStack();
   }
 
@@ -171,6 +184,7 @@ class BrowserController extends ChangeNotifier {
       }
       notifyListeners();
       await _loadOn(_primaryHost, fresh.url);
+      _resetHistoryAlignment();
       await _persistStack();
       return;
     }
@@ -187,6 +201,7 @@ class BrowserController extends ChangeNotifier {
     notifyListeners();
     if (wasActive) {
       await _loadOn(_primaryHost, activeTab.url);
+      _resetHistoryAlignment();
     }
     await _persistStack();
   }
@@ -307,6 +322,8 @@ class BrowserController extends ChangeNotifier {
     final url = event.url;
     if (url != null && url != activeTab.url) {
       _replaceTab(activeTab.navigateTo(url));
+      _nativeBackDepth += 1;
+      _nativeForwardDepth = 0;
       notifyListeners();
       unawaited(_persistStack());
     }
@@ -359,6 +376,47 @@ class BrowserController extends ChangeNotifier {
     }
   }
 
+  /// Steps the web view through its own history when the model position
+  /// aligns with the engine's, and falls back to a plain re-load otherwise.
+  /// A walk replays the page the engine already holds; a re-load starts a
+  /// new alignment window because the engine's neighbors stop matching.
+  Future<void> _stepHistoryOrReload(String fallbackUrl,
+      {required bool forward}) async {
+    final host = _primaryHost;
+    final aligned = forward ? _nativeForwardDepth : _nativeBackDepth;
+    _suppressUrlEvents = true;
+    var walked = false;
+    if (host != null && aligned > 0) {
+      try {
+        final canStep =
+            forward ? await host.canGoForward() : await host.canGoBack();
+        if (canStep) {
+          if (forward) {
+            await host.goForward();
+          } else {
+            await host.goBack();
+          }
+          walked = true;
+        }
+      } on Exception {
+        walked = false;
+      }
+    }
+    if (walked) {
+      if (forward) {
+        _nativeForwardDepth -= 1;
+        _nativeBackDepth += 1;
+      } else {
+        _nativeBackDepth -= 1;
+        _nativeForwardDepth += 1;
+      }
+    } else {
+      _resetHistoryAlignment();
+      await _loadOn(host, fallbackUrl);
+    }
+    _suppressUrlEvents = false;
+  }
+
   Future<void> _loadOn(WebViewHost? host, String url) async {
     if (host == null) {
       return;
@@ -368,6 +426,14 @@ class BrowserController extends ChangeNotifier {
     } on Exception {
       // Navigation failures surface through web view events.
     }
+  }
+
+  /// A load that does not come from this tab's own navigation (a tab
+  /// switch, a restore, a fresh tab) starts a new alignment window: the
+  /// engine's back entry no longer belongs to this tab's history.
+  void _resetHistoryAlignment() {
+    _nativeBackDepth = 0;
+    _nativeForwardDepth = 0;
   }
 
   void _replaceTab(TabEntry tab) {
