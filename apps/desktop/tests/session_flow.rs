@@ -127,7 +127,7 @@ fn ipc_reports_flow_into_session_state() {
     session.ensure_startup_window().unwrap();
     let tab = focused_tab(&session);
 
-    let raw = "{\"type\":\"navigation_state_changed\",\"state\":{\"url\":\"https://example.com/\",\"title\":\"Example Domain\",\"can_go_back\":false,\"can_go_forward\":false,\"is_loading\":false}}";
+    let raw = "{\"type\":\"navigation_state_changed\",\"state\":{\"url\":\"https://example.com/\",\"title\":\"Example Domain\",\"is_loading\":false}}";
     match decode_webview_message(raw).unwrap() {
         WebviewToHost::NavigationStateChanged { state } => {
             let effects = session.report_navigation(tab, state).unwrap();

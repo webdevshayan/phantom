@@ -764,13 +764,7 @@ impl PhantomSession {
             .window_mut(window_id)
             .ok_or(ModelError::UnknownWindow(window_id))?;
         if let Some(tab) = window.tab_mut(tab_id) {
-            tab.apply_state(
-                url,
-                &state.title,
-                state.can_go_back,
-                state.can_go_forward,
-                state.is_loading,
-            );
+            tab.apply_state(url, &state.title, state.is_loading);
         }
         let mut effects = Vec::new();
         if is_active {
@@ -1147,34 +1141,53 @@ mod tests {
     }
 
     #[test]
-    fn navigation_reports_update_title_and_back_forward() {
+    fn navigation_reports_derive_back_and_forward_from_history() {
         let mut session = started();
         let tab = active_tab_id(&session).unwrap();
-        let effects = session
-            .report_navigation(
+        let state = |url: &str, title: &str| NavigationState {
+            url: url.into(),
+            title: title.into(),
+            is_loading: false,
+        };
+        // omnibox navigation commits as the first entry
+        session
+            .handle(BrowserCommand::Navigate {
                 tab,
-                NavigationState {
-                    url: "https://example.com/page".into(),
-                    title: "Example Page".into(),
-                    can_go_back: true,
-                    can_go_forward: false,
-                    is_loading: false,
-                },
-            )
+                target: NavigationTarget::Url(Url::parse("https://a.example/").unwrap()),
+            })
+            .unwrap();
+        // an in-page link lands on a new entry: back exists, forward does not
+        let effects = session
+            .report_navigation(tab, state("https://b.example/page", "B Page"))
             .unwrap();
         assert_eq!(
             effects,
             vec![Effect::SetWindowTitle {
                 window: session.focused_window_id().unwrap(),
-                title: "Example Page".into()
+                title: "B Page".into()
             }]
         );
         let window = session
             .window(session.focused_window_id().unwrap())
             .unwrap();
         let tab_state = window.tab(tab).unwrap();
-        assert!(tab_state.can_go_back);
+        assert!(tab_state.can_go_back());
+        assert!(!tab_state.can_go_forward());
         assert_eq!(tab_state.status, crate::domain::tab::TabStatus::Loaded);
+        // a traversal report back to the first entry arms the forward button
+        session
+            .report_navigation(tab, state("https://a.example/", "A"))
+            .unwrap();
+        let tab_state = session
+            .window(session.focused_window_id().unwrap())
+            .unwrap()
+            .tab(tab)
+            .unwrap();
+        assert!(tab_state.can_go_back(), "the startup newtab entry precedes");
+        assert!(
+            tab_state.can_go_forward(),
+            "the b entry sits ahead: the forward button must enable"
+        );
     }
 
     #[test]

@@ -32,9 +32,10 @@ pub enum WebviewToHost {
 pub struct NavigationState {
     pub url: String,
     pub title: String,
-    pub can_go_back: bool,
-    pub can_go_forward: bool,
     pub is_loading: bool,
+    // back/forward availability is deliberately absent: scripts cannot be
+    // trusted to report history state, so the session derives it from its
+    // own committed-entry history (see domain::tab::Tab).
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
@@ -135,8 +136,15 @@ mod tests {
 
     fn state_json(url: &str, title: &str) -> String {
         format!(
-            "{{\"type\":\"navigation_state_changed\",\"state\":{{\"url\":\"{url}\",\"title\":\"{title}\",\"can_go_back\":false,\"can_go_forward\":false,\"is_loading\":false}}}}"
+            "{{\"type\":\"navigation_state_changed\",\"state\":{{\"url\":\"{url}\",\"title\":\"{title}\",\"is_loading\":false}}}}"
         )
+    }
+
+    #[test]
+    fn history_flags_are_refused_on_the_wire() {
+        // a page must not assert back/forward; the session derives them
+        let raw = "{\"type\":\"navigation_state_changed\",\"state\":{\"url\":\"https://a.b/\",\"title\":\"t\",\"can_go_back\":true,\"can_go_forward\":false,\"is_loading\":false}}";
+        assert_eq!(decode_webview_message(raw), Err(IpcError::UnknownType));
     }
 
     #[test]
@@ -231,8 +239,6 @@ mod tests {
         let state = NavigationState {
             url: "https://a.b/".into(),
             title: "bad\nnewlines".into(),
-            can_go_back: false,
-            can_go_forward: false,
             is_loading: false,
         };
         let raw = serde_json::to_string(&WebviewToHost::NavigationStateChanged { state }).unwrap();

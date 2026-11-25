@@ -250,8 +250,6 @@ mod tests {
                 state: NavigationState {
                     url: "https://example.net/doc".into(),
                     title: "Doc".into(),
-                    can_go_back: false,
-                    can_go_forward: false,
                     is_loading: false,
                 },
             },

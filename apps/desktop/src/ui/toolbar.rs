@@ -24,8 +24,8 @@ pub fn render(
         };
         match window_state.active_tab() {
             Some(tab) => (
-                tab.can_go_back,
-                tab.can_go_forward,
+                tab.can_go_back(),
+                tab.can_go_forward(),
                 tab.status == TabStatus::Loading,
             ),
             None => (false, false, false),

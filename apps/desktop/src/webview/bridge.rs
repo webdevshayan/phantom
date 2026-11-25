@@ -15,8 +15,6 @@ pub const STATE_BRIDGE_JS: &str = r#"(function () {
       var nav = {
         url: String((location && location.href) || ''),
         title: String((document && document.title) || ''),
-        can_go_back: !!(history && history.length > 1),
-        can_go_forward: false,
         is_loading: !!(document && document.readyState === 'loading')
       };
       window.ipc.postMessage(JSON.stringify({ type: 'navigation_state_changed', state: nav }));
@@ -77,6 +75,10 @@ mod tests {
         assert!(!STATE_BRIDGE_JS.contains("eval("));
         assert!(!STATE_BRIDGE_JS.contains("http://"));
         assert!(!STATE_BRIDGE_JS.contains("https://"));
+        // pages never assert history state; the session derives it
+        assert!(!STATE_BRIDGE_JS.contains("can_go_back"));
+        assert!(!STATE_BRIDGE_JS.contains("can_go_forward"));
+        assert!(!STATE_BRIDGE_JS.contains("history.length"));
     }
 
     #[test]
