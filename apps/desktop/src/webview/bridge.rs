@@ -53,8 +53,6 @@ pub const STATE_BRIDGE_JS: &str = r#"(function () {
   };
   // no polling loop: the event hooks above already cover url, title and
   // loading changes, and an idle page must never wake the host up
-  // slow-loading pages update late; a light poll keeps the strip honest
-  setInterval(report, 1000);
 })();"#;
 
 #[cfg(test)]
@@ -66,6 +64,13 @@ mod tests {
         // initialization scripts run in subframes on WebView2; without the
         // gate a cross-origin iframe could post navigation_state_changed
         assert!(STATE_BRIDGE_JS.contains("window.top !== window"));
+    }
+
+    #[test]
+    fn bridge_runs_no_polling_loop() {
+        // an idle page must not wake the host or touch the disk every second
+        assert!(!STATE_BRIDGE_JS.contains("setInterval"));
+        assert!(!STATE_BRIDGE_JS.contains("setTimeout"));
     }
 
     #[test]

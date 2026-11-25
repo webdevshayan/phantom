@@ -763,6 +763,9 @@ impl PhantomSession {
         let window = self
             .window_mut(window_id)
             .ok_or(ModelError::UnknownWindow(window_id))?;
+        let before = window
+            .tab(tab_id)
+            .map(|tab| (tab.url.clone(), tab.title.clone()));
         if let Some(tab) = window.tab_mut(tab_id) {
             tab.apply_state(url, &state.title, state.is_loading);
         }
@@ -775,7 +778,17 @@ impl PhantomSession {
                 });
             }
         }
-        self.flush()?;
+        // Only url and title are part of the persisted snapshot. Reports
+        // that move neither — loading flips, the several events one page
+        // commit emits — must not rewrite the database, so flush only on a
+        // real change. Structural flows keep their own flush points.
+        let changed = window
+            .tab(tab_id)
+            .map(|tab| (tab.url.clone(), tab.title.clone()))
+            != before;
+        if changed {
+            self.flush()?;
+        }
         Ok(effects)
     }
 
@@ -1187,6 +1200,48 @@ mod tests {
         assert!(
             tab_state.can_go_forward(),
             "the b entry sits ahead: the forward button must enable"
+        );
+    }
+
+    #[test]
+    fn navigation_reports_persist_only_real_changes() {
+        let mut session = started();
+        let tab = active_tab_id(&session).unwrap();
+        let state = |url: &str, title: &str, loading: bool| NavigationState {
+            url: url.into(),
+            title: title.into(),
+            is_loading: loading,
+        };
+        let writes_at_rest = session.store.row_ops();
+        // first commit of a page: url and title change, one write lands
+        session
+            .report_navigation(tab, state("https://example.com/a", "A", true))
+            .unwrap();
+        let writes_after_first = session.store.row_ops();
+        assert!(
+            writes_after_first > writes_at_rest,
+            "a new page persists exactly once"
+        );
+        // repeated emissions of the same commit write nothing: no poll, no
+        // churn, the idle page stays off the disk
+        session
+            .report_navigation(tab, state("https://example.com/a", "A", true))
+            .unwrap();
+        session
+            .report_navigation(tab, state("https://example.com/a", "A", false))
+            .unwrap();
+        assert_eq!(
+            session.store.row_ops(),
+            writes_after_first,
+            "flag churn and repeats must not rewrite the database"
+        );
+        // a real snapshot change (new title) persists again
+        session
+            .report_navigation(tab, state("https://example.com/a", "A Updated", false))
+            .unwrap();
+        assert!(
+            session.store.row_ops() > writes_after_first,
+            "title change is a real snapshot change"
         );
     }
 

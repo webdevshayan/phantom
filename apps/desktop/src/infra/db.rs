@@ -124,6 +124,14 @@ impl Store {
             .unwrap_or(0)
     }
 
+    /// Test-only observation point: SQLite row operations since the
+    /// connection opened. Save paths rewrite rows, so a move in this
+    /// counter proves a flush landed on disk.
+    #[cfg(test)]
+    pub(crate) fn row_ops(&self) -> u64 {
+        self.conn.total_changes().max(0) as u64
+    }
+
     fn migrate(conn: &Connection) -> Result<(), DbError> {
         let current: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         for (index, sql) in MIGRATIONS.iter().enumerate() {
