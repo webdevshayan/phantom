@@ -1,0 +1,19 @@
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# IDE
+.idea/
+*.iml
+
+# Platform local config
+local.properties
+
+# OS noise
+.DS_Store
