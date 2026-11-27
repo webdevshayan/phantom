@@ -112,6 +112,9 @@ class FakeWebViewHost implements WebViewHost {
   Future<bool> canGoBack() async => canWalkBack;
 
   @override
+  Future<bool> canGoForward() async => canWalkForward;
+
+  @override
   Future<void> goBack() async {
     backSteps++;
     loadedUrls.add('goBack');

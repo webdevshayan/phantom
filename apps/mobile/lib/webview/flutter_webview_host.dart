@@ -48,6 +48,15 @@ class PanelWebViewHost implements WebViewHost {
   }
 
   @override
+  Future<bool> canGoForward() async {
+    try {
+      return await _controller.canGoForward();
+    } on Exception {
+      return false;
+    }
+  }
+
+  @override
   Future<void> goBack() async {
     try {
       await _controller.goBack();

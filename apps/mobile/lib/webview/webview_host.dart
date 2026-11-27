@@ -31,9 +31,12 @@ abstract class WebViewHost {
   /// True when the embedded web view can step back in its own history.
   Future<bool> canGoBack();
 
-  /// Steps the embedded web view one entry back in its own history. This
-  /// replays the page the engine already holds, so POST results, scroll
-  /// positions and page state survive; a fresh loadRequest cannot.
+  /// True when the embedded web view can step forward in its own history.
+  Future<bool> canGoForward();
+
+  /// Steps the embedded web view one entry back in its own history.
+  /// This replays the page the engine already holds, so POST results,
+  /// scroll positions and page state survive; a fresh loadRequest cannot.
   Future<void> goBack();
 
   /// Steps the embedded web view one entry forward in its own history.
