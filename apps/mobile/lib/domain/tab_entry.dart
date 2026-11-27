@@ -54,6 +54,26 @@ class TabEntry {
     );
   }
 
+  /// Re-targets the current position to [nextUrl] without touching the
+  /// surrounding history. The engine folds a server-side redirect into the
+  /// entry the navigation created instead of appending one, so a redirect
+  /// hop replaces the provisional url at the current position: the page
+  /// before it stays one step back, no phantom position is added.
+  TabEntry withUrl(String nextUrl) {
+    if (nextUrl == url || history.isEmpty) {
+      return this;
+    }
+    final index = historyIndex.clamp(0, history.length - 1);
+    final next = List<String>.from(history);
+    next[index] = nextUrl;
+    return TabEntry(
+      id: id,
+      title: title,
+      history: next,
+      historyIndex: index,
+    );
+  }
+
   TabEntry goBack() => canGoBack ? _at(historyIndex - 1) : this;
 
   TabEntry goForward() => canGoForward ? _at(historyIndex + 1) : this;

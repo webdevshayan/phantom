@@ -266,6 +266,138 @@ void main() {
       expect(controller.activeTab.url, 'https://a.example/redirected');
     });
 
+    test('retyping the loaded url keeps the alignment window closed',
+        () async {
+      final controller = buildController();
+      final host = FakeWebViewHost()..canWalkBack = true;
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://a.example');
+      await controller.navigate('https://b.example');
+      await settle();
+
+      // navigateTo returns the entry unchanged when the input resolves to
+      // the loaded url, but the engine still appends a duplicate entry for
+      // the fresh load: the window must not claim that step.
+      await controller.navigate('https://b.example');
+      await settle();
+
+      await controller.back();
+      expect(controller.activeTab.url, 'https://a.example');
+      expect(host.backSteps, 0);
+      expect(host.loadedUrls.last, 'https://a.example');
+    });
+
+    test('a link click through a redirect chain appends one entry',
+        () async {
+      final controller = buildController();
+      final host = FakeWebViewHost()..canWalkBack = true;
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://home.example');
+      await settle();
+
+      // The user clicks a shortener link: the click's provisional entry
+      // follows 302 hops and commits the target. The engine appends one
+      // entry for the whole chain, so the model must too.
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.navigationStarted,
+        url: 'https://bit.example/x',
+      ));
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.navigationStarted,
+        url: 'https://target.example/page',
+      ));
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.pageLoaded,
+        url: 'https://target.example/page',
+      ));
+      await settle();
+
+      expect(controller.activeTab.url, 'https://target.example/page');
+
+      await controller.back();
+      expect(controller.activeTab.url, 'https://home.example');
+      expect(host.backSteps, 1);
+      expect(host.loadedUrls.last, 'goBack');
+    });
+
+    test('a redirect chain of a programmatic load folds into one position',
+        () async {
+      final controller = buildController();
+      final host = FakeWebViewHost()..canWalkBack = true;
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://sso.example/start');
+      await settle();
+
+      // The engine reports the redirect hop while the awaited load is in
+      // flight, then commits the target. The hop must fold into the pushed
+      // position instead of appending a phantom one and double counting
+      // the depth.
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.navigationStarted,
+        url: 'https://sso.example/start',
+      ));
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.navigationStarted,
+        url: 'https://sso.example/logged-in',
+      ));
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.pageLoaded,
+        url: 'https://sso.example/logged-in',
+      ));
+      await settle();
+
+      expect(controller.activeTab.url, 'https://sso.example/logged-in');
+      expect(controller.activeTab.canGoBack, isTrue);
+
+      // One back press steps the model exactly one engine entry onto the
+      // page before the chain.
+      await controller.back();
+      expect(controller.activeTab.url, 'about:blank');
+      expect(controller.activeTab.canGoBack, isFalse);
+      expect(host.backSteps, 1);
+      expect(host.loadedUrls.last, 'goBack');
+    });
+
+    test('a redirect of a walked page folds and keeps the window honest',
+        () async {
+      final controller = buildController();
+      final host = FakeWebViewHost()..canWalkBack = true;
+      controller.attachHost(WebViewSlot.primary, host);
+      await controller.restoreSession();
+      await controller.navigate('https://first.example');
+      await controller.navigate('https://second.example');
+      await settle();
+
+      // Walking back replays the engine's entry, which answers with a
+      // server-side redirect: the engine replaces the walked-to entry and
+      // the model must re-target instead of holding the stale target.
+      await controller.back();
+      await settle();
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.navigationStarted,
+        url: 'https://first.example',
+      ));
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.navigationStarted,
+        url: 'https://first.example/redirected',
+      ));
+      host.emit(const WebViewEvent(
+        kind: WebViewEventKind.pageLoaded,
+        url: 'https://first.example/redirected',
+      ));
+      await settle();
+      expect(controller.activeTab.url, 'https://first.example/redirected');
+
+      // The window stays honest through the redirect: the next step walks
+      // again instead of falling back to a re-load.
+      await controller.back();
+      expect(controller.activeTab.url, 'about:blank');
+      expect(host.backSteps, 2);
+    });
+
     test('bridge messages feed the devtools log store', () async {
       final controller = buildController();
       final host = FakeWebViewHost();

@@ -39,8 +39,14 @@ class BrowserController extends ChangeNotifier {
   StreamSubscription<WebViewEvent>? _secondaryEvents;
   bool _splitActive = false;
   String? _splitTabId;
-  bool _suppressUrlEvents = false;
   int _idSequence = 0;
+
+  /// True while the engine works through one navigation chain: from the
+  /// first [WebViewEventKind.navigationStarted] until the matching
+  /// [WebViewEventKind.pageLoaded] (or a load failure). Url events inside
+  /// the chain are redirect hops of the one in-flight entry, so the model
+  /// re-targets the current position instead of pushing a new one.
+  bool _loadChainOpen = false;
 
   /// How many model history positions behind the active page the engine's
   /// own back stack also holds. A positive count means [back] can replay
@@ -92,13 +98,22 @@ class BrowserController extends ChangeNotifier {
   Future<void> navigate(String rawInput) async {
     final target = resolveOmniboxInput(rawInput, searchEngine);
     await _captureFormDrafts();
+    final previousUrl = activeTab.url;
     _replaceTab(activeTab.navigateTo(target.url));
     notifyListeners();
     final host = _primaryHost;
     if (host != null) {
       await _loadOn(host, target.url);
-      _nativeBackDepth += 1;
-      _nativeForwardDepth = 0;
+      if (target.url == previousUrl) {
+        // Retyping the loaded url moved no model position, but the fresh
+        // loadRequest still appends a duplicate engine entry. Keep the
+        // alignment window closed so later steps re-load instead of
+        // walking onto the duplicate.
+        _resetHistoryAlignment();
+      } else {
+        _nativeBackDepth += 1;
+        _nativeForwardDepth = 0;
+      }
     }
     await _persistStack();
   }
@@ -308,26 +323,46 @@ class BrowserController extends ChangeNotifier {
       return;
     }
     if (event.kind == WebViewEventKind.loadFailed) {
-      if (slot == WebViewSlot.primary && event.message != null) {
-        devToolsLogStore.appendConsole(
-          'error',
-          'Failed to load: ${event.message}',
-        );
+      if (slot == WebViewSlot.primary) {
+        // The chain the engine was loading is dead: the next navigation
+        // starts its own entry again.
+        _loadChainOpen = false;
+        if (event.message != null) {
+          devToolsLogStore.appendConsole(
+            'error',
+            'Failed to load: ${event.message}',
+          );
+        }
       }
       return;
     }
-    if (slot != WebViewSlot.primary || _suppressUrlEvents) {
+    if (slot != WebViewSlot.primary) {
       return;
     }
     final url = event.url;
+    final chainWasOpen = _loadChainOpen;
+    if (event.kind == WebViewEventKind.navigationStarted) {
+      _loadChainOpen = true;
+    }
     if (url != null && url != activeTab.url) {
-      _replaceTab(activeTab.navigateTo(url));
-      _nativeBackDepth += 1;
-      _nativeForwardDepth = 0;
-      notifyListeners();
-      unawaited(_persistStack());
+      if (chainWasOpen) {
+        // A redirect hop of the in-flight navigation: the engine replaces
+        // the entry it provisionally created instead of appending one, so
+        // the model re-targets the current position rather than pushing.
+        _replaceTab(activeTab.withUrl(url));
+        notifyListeners();
+        unawaited(_persistStack());
+      } else {
+        _replaceTab(activeTab.navigateTo(url));
+        _nativeBackDepth += 1;
+        _nativeForwardDepth = 0;
+        notifyListeners();
+        unawaited(_persistStack());
+      }
     }
     if (event.kind == WebViewEventKind.pageLoaded) {
+      // The chain committed: the next navigation starts its own entry.
+      _loadChainOpen = false;
       unawaited(restoreFormDrafts());
     }
   }
@@ -380,11 +415,14 @@ class BrowserController extends ChangeNotifier {
   /// aligns with the engine's, and falls back to a plain re-load otherwise.
   /// A walk replays the page the engine already holds; a re-load starts a
   /// new alignment window because the engine's neighbors stop matching.
+  /// The replay's url events are not suppressed: they belong to the walked
+  /// -to position, and the chain logic in [handleWebViewEvent] folds a
+  /// redirect of the replayed entry into the model position instead of
+  /// pushing an entry the engine never kept.
   Future<void> _stepHistoryOrReload(String fallbackUrl,
       {required bool forward}) async {
     final host = _primaryHost;
     final aligned = forward ? _nativeForwardDepth : _nativeBackDepth;
-    _suppressUrlEvents = true;
     var walked = false;
     if (host != null && aligned > 0) {
       try {
@@ -414,7 +452,6 @@ class BrowserController extends ChangeNotifier {
       _resetHistoryAlignment();
       await _loadOn(host, fallbackUrl);
     }
-    _suppressUrlEvents = false;
   }
 
   Future<void> _loadOn(WebViewHost? host, String url) async {

@@ -60,6 +60,44 @@ void main() {
       expect(titled.historyIndex, tab.historyIndex);
     });
 
+    test('withUrl re-targets the current position in place', () {
+      var tab = TabEntry.blank(id: 't1');
+      tab = tab.navigateTo('https://a.example');
+      tab = tab.navigateTo('https://b.example');
+      final folded = tab.withUrl('https://b.example/redirected');
+      // The redirect target replaces the provisional url: the page before
+      // it stays one step back and no phantom position is added.
+      expect(folded.url, 'https://b.example/redirected');
+      expect(
+        folded.history,
+        <String>[TabEntry.blankUrl, 'https://a.example', 'https://b.example/redirected'],
+      );
+      expect(folded.canGoBack, isTrue);
+      expect(folded.canGoForward, isFalse);
+      expect(folded.goBack().url, 'https://a.example');
+    });
+
+    test('withUrl keeps forward entries when re-targeting mid history', () {
+      var tab = TabEntry.blank(id: 't1');
+      tab = tab.navigateTo('https://a.example');
+      tab = tab.navigateTo('https://b.example');
+      tab = tab.goBack();
+      final folded = tab.withUrl('https://a.example/redirected');
+      expect(folded.url, 'https://a.example/redirected');
+      expect(
+        folded.history,
+        <String>[TabEntry.blankUrl, 'https://a.example/redirected', 'https://b.example'],
+      );
+      expect(folded.canGoForward, isTrue);
+      expect(folded.goForward().url, 'https://b.example');
+    });
+
+    test('withUrl to the current url is a no-op', () {
+      var tab = TabEntry.blank(id: 't1');
+      tab = tab.navigateTo('https://a.example');
+      expect(identical(tab.withUrl('https://a.example'), tab), isTrue);
+    });
+
     test('json round trip preserves the entry', () {
       var tab = TabEntry.blank(id: 't1');
       tab = tab.navigateTo('https://a.example').withTitle('Example');
