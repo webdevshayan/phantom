@@ -1,19 +1,5 @@
-# Dart / Flutter
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-build/
-coverage/
+# Native build output
+src-tauri/target/
 
-# IDE
-.idea/
-*.iml
-
-# Platform local config
-local.properties
-
-# OS noise
-.DS_Store
+# Generated mobile harnesses (created once by `cargo tauri android init`)
+src-tauri/gen/

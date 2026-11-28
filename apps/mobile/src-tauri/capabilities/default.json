@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window. The injected chrome drives the core exclusively through the phantom:// binary protocol, so only the core defaults are needed.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
